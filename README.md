@@ -1,6 +1,6 @@
 # Silly Journal
 
-Xinyi & Gokul's private journal: notebook pages you can type, draw and put stickers on, a shared gym streak (Silly Fitness) and a tree you grow together (Our Tree).
+Xinyi & Gokul's private journal: notebook pages you can type, draw and put stickers on, a shared gym streak (Silly Fitness) and two trees you grow together, one in Ithaca and one in Santa Clara (Our Trees).
 
 It's a plain static site (no build step) hosted on GitHub Pages, with Supabase for sign-in, the database and private photo storage.
 
@@ -11,6 +11,9 @@ It's a plain static site (no build step) hosted on GitHub Pages, with Supabase f
 2. Create your two accounts in **Authentication → Users → Add user → Create new user** (your own email and password each; tick "Auto confirm").
 3. Open [`supabase/members.sql`](supabase/members.sql), replace the two emails, paste it into a new query and **Run**. It should list exactly two rows: `sillyxinyi` and `sillygokul`.
 4. In **Authentication → Sign In / Providers**, turn **off** "Allow new users to sign up".
+
+### Updating an existing database
+If you set up the database before the two-trees change, run [`supabase/two-trees.sql`](supabase/two-trees.sql) once in the SQL Editor. It keeps the tree you already planted (in the place it was set to) and gives the other place its own empty tree.
 
 ### 2. Links in emails
 In **Authentication → URL Configuration**:
@@ -28,7 +31,7 @@ In this repo on GitHub: **Settings → Pages → Build and deployment → Source
 
 ## Files
 - `index.html` sign in · `home.html` journal · `write.html` notebook editor · `entry.html` a page with likes & comments
-- `fitness.html` Silly Fitness · `tree.html` Our Tree · `about.html` · `settings.html` · `reset.html`
+- `fitness.html` Silly Fitness · `tree.html` Our Trees · `about.html` · `settings.html` · `reset.html`
 - `js/config.js` Supabase URL + public key, tree locations
 - `supabase/schema.sql` tables, security rules, storage buckets
 - Weather comes from [Open-Meteo](https://open-meteo.com/) (free, no key).

@@ -88,41 +88,50 @@ Promise.all([
     el('p', { class: 'small muted', style: 'margin:0' }, `This week · ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'} left`));
 })().catch((e) => { $('fit-body').textContent = friendlyError(e); });
 
-// ───────── Tree summary ─────────
+// ───────── Tree summary (one per place) ─────────
 (async () => {
-  const [{ data: tree }, { data: waterings }, { count: picked }] = await Promise.all([
-    sb.from('tree').select('*').eq('id', 1).single(),
-    sb.from('waterings').select('user_id, day'),
-    sb.from('basket').select('id', { count: 'exact', head: true })
+  const [{ data: trees, error }, { data: waterings }, { data: basket }] = await Promise.all([
+    sb.from('trees').select('*'),
+    sb.from('waterings').select('user_id, location, day'),
+    sb.from('basket').select('location')
   ]);
+  if (error) throw error;
   const box = $('tree-body');
   box.className = '';
-  if (!tree || !tree.kind) {
-    box.replaceChildren(el('p', { style: 'margin:0' }, 'Nothing planted yet.'), el('a', { class: 'btn', href: 'tree.html', style: 'align-self:flex-start' }, 'Plant our tree'));
-    return;
-  }
-  const loc = LOCATIONS[tree.location];
-  const ws = wateringSummary(waterings || [], loc.tz);
-  const stage = stageFor(ws.wateredDays);
-  let weather = null;
-  try { weather = await getWeather(tree.location); } catch (e) {}
-  const season = seasonFor(tree.location, weather);
-  const lk = look(tree.kind, tree.location, season, stage, weather);
-  const sp = (lk.bare ? BARE : LEAFY)[stage];
-  const scale = Math.min(1, 90 / (sp.w), 92 / sp.h);
-  const w = Math.round(sp.w * scale), h = Math.round(sp.h * scale);
-  const mini = el('div', { class: 'mini-tree', 'aria-hidden': 'true', style: 'background:' + lk.sky },
-    el('div', { style: `position:absolute;left:0;right:0;top:96px;height:12px;background:#7A5E3E;border-top:3px solid ${lk.ground}` }),
-    el('img', { class: 'pixel', src: sp.src, alt: '', style: `position:absolute;left:${(96 - w) / 2}px;top:${100 - h}px;width:${w}px;height:${h}px;filter:${FILTERS[lk.mode]}` }));
-  const watered = members.map((id) => el('span', { class: 'chip ' + (ws.todayBy.has(id) ? 'chip-ok' : 'chip-lock') }, ws.todayBy.has(id) ? `${nameOf(id)} watered today` : `${nameOf(id)} hasn’t yet`));
-  box.replaceChildren(
-    el('div', { class: 'row', style: 'gap:16px;flex-wrap:nowrap' }, mini,
-      el('div', { style: 'display:flex;flex-direction:column;gap:4px', class: 'small' },
-        el('span', { style: 'font-weight:600;font-size:15px' }, `${TREES[tree.kind].label} tree · ${loc.short}`),
+  box.style.cssText = 'display:flex;flex-direction:column;gap:16px';
+  const rows = await Promise.all(Object.keys(LOCATIONS).map(async (where) => {
+    const loc = LOCATIONS[where];
+    const tree = (trees || []).find((t) => t.location === where);
+    const link = 'tree.html?loc=' + where;
+    if (!tree || !tree.kind) {
+      return el('div', { class: 'row', style: 'gap:12px' },
+        el('span', { style: 'font-weight:600;font-size:15px' }, loc.short),
+        el('span', { class: 'muted small' }, 'Nothing planted yet.'),
+        el('a', { class: 'small', href: link, style: 'font-weight:600' }, 'Plant one'));
+    }
+    const ws = wateringSummary((waterings || []).filter((w) => w.location === where), loc.tz);
+    const stage = stageFor(ws.wateredDays);
+    let weather = null;
+    try { weather = await getWeather(where); } catch (e) {}
+    const season = seasonFor(where, weather);
+    const lk = look(tree.kind, where, season, stage, weather);
+    const sp = (lk.bare ? BARE : LEAFY)[stage];
+    const scale = Math.min(1, 90 / (sp.w), 92 / sp.h);
+    const w = Math.round(sp.w * scale), h = Math.round(sp.h * scale);
+    const picked = (basket || []).filter((b) => b.location === where).length;
+    const mini = el('a', { class: 'mini-tree', href: link, 'aria-hidden': 'true', tabindex: '-1', style: 'background:' + lk.sky },
+      el('div', { style: `position:absolute;left:0;right:0;top:96px;height:12px;background:#7A5E3E;border-top:3px solid ${lk.ground}` }),
+      el('img', { class: 'pixel', src: sp.src, alt: '', style: `position:absolute;left:${(96 - w) / 2}px;top:${100 - h}px;width:${w}px;height:${h}px;filter:${FILTERS[lk.mode]}` }));
+    const watered = members.map((id) => el('span', { class: 'chip ' + (ws.todayBy.has(id) ? 'chip-ok' : 'chip-lock') }, ws.todayBy.has(id) ? `${nameOf(id)} watered` : `${nameOf(id)} hasn’t yet`));
+    return el('div', { class: 'row', style: 'gap:16px;flex-wrap:nowrap;align-items:flex-start' }, mini,
+      el('div', { style: 'display:flex;flex-direction:column;gap:4px;min-width:0', class: 'small' },
+        el('a', { href: link, style: 'font-weight:600;font-size:15px;text-decoration:none' }, `${TREES[tree.kind].label} tree · ${loc.short}`),
         el('span', { class: 'muted' }, `${STAGES[stage]} · ${season[0].toUpperCase() + season.slice(1)}${weather ? ` · ${weather.temp}°F` : ''}`),
-        el('span', { class: 'muted' }, `Basket: ${picked || 0} picked`))),
-    el('div', { class: 'row', style: 'gap:8px' }, watered));
-})().catch((e) => { $('tree-body').textContent = friendlyError(e); });
+        el('span', { class: 'muted' }, `Basket: ${picked} picked`),
+        el('div', { class: 'row', style: 'gap:6px;margin-top:2px' }, watered)));
+  }));
+  box.replaceChildren(...rows);
+})().catch((e) => { $('tree-body').textContent = /trees|schema cache/i.test(e.message || '') ? 'Run supabase/two-trees.sql in Supabase to finish the two-trees update.' : friendlyError(e); });
 
 // ───────── On this day ─────────
 (async () => {

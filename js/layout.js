@@ -5,7 +5,7 @@ import { STICKER_FILES, STICKER_LAYOUT } from './stickers-bg.js';
 const NAV = [
   ['home.html', 'Journal'],
   ['fitness.html', 'Silly Fitness'],
-  ['tree.html', 'Our Tree'],
+  ['tree.html', 'Our Trees'],
   ['about.html', 'About us']
 ];
 

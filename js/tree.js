@@ -9,17 +9,37 @@ mountLayout(ctx, 'tree.html');
 const members = ctx.profiles.map((p) => p.id);
 const $ = (id) => document.getElementById(id);
 
-let tree, waterings = [], basket = [], weather = null;
+// One tree in each place. `where` is the one on screen (remembered per browser).
+let where = 'ithaca';
+try { if (LOCATIONS[localStorage.getItem('sj-tree-loc')]) where = localStorage.getItem('sj-tree-loc'); } catch (e) {}
+const params = new URLSearchParams(location.search);
+if (LOCATIONS[params.get('loc')]) where = params.get('loc');
+
+let trees = {}, allWaterings = [], allBasket = [], weather = null;
+let tree, waterings = [], basket = [];
 let previewSeason = null, previewStage = null, pendingKind = null;
 
 async function load() {
   const [t, w, b] = await Promise.all([
-    sb.from('tree').select('*').eq('id', 1).single(),
-    sb.from('waterings').select('user_id, day'),
-    sb.from('basket').select('id, user_id, fruit, day, spot, created_at').order('created_at')
+    sb.from('trees').select('*'),
+    sb.from('waterings').select('user_id, location, day'),
+    sb.from('basket').select('id, user_id, location, fruit, day, spot, created_at').order('created_at')
   ]);
-  if (t.error) throw t.error;
-  tree = t.data; waterings = w.data || []; basket = b.data || [];
+  if (t.error) {
+    if (/trees|schema cache/i.test(t.error.message)) throw new Error('The two-trees update hasn’t been added to the database yet. Run supabase/two-trees.sql in the Supabase SQL Editor.');
+    throw t.error;
+  }
+  trees = Object.fromEntries((t.data || []).map((r) => [r.location, r]));
+  allWaterings = w.data || []; allBasket = b.data || [];
+  select(where);
+}
+
+function select(l) {
+  where = l;
+  try { localStorage.setItem('sj-tree-loc', l); } catch (e) {}
+  tree = trees[l] || { location: l, kind: null };
+  waterings = allWaterings.filter((x) => x.location === l);
+  basket = allBasket.filter((x) => x.location === l);
 }
 
 async function loadWeather() {
@@ -48,7 +68,11 @@ function render() {
   const live = planted && previewStage == null && previewSeason == null;
 
   // Location
-  document.querySelectorAll('#locs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.l === tree.location)));
+  document.querySelectorAll('#locs button').forEach((b) => {
+    const t = trees[b.dataset.l];
+    b.setAttribute('aria-pressed', String(b.dataset.l === tree.location));
+    b.textContent = t && t.kind ? `${LOCATIONS[b.dataset.l].short} · ${TREES[t.kind].label}` : LOCATIONS[b.dataset.l].label;
+  });
 
   // Season buttons
   const cap = (s) => s[0].toUpperCase() + s.slice(1);
@@ -117,7 +141,8 @@ function render() {
     ...fallen);
 
   // Caption
-  $('t-title').textContent = planted ? `Our ${kind} tree in ${loc().short}` : (pendingKind ? `A ${kind} tree, if we plant it` : 'Pick a tree to plant');
+  $('t-title').textContent = planted ? `Our ${kind} tree in ${loc().short}` : (pendingKind ? `A ${kind} tree for ${loc().short}, if we plant it` : `Pick a tree to plant in ${loc().short}`);
+  $('plant-title').textContent = `Our ${loc().short} tree`;
   let note = previewStage != null && previewStage !== realStage ? `Preview: ${STAGES[stage].toLowerCase()}. ` : '';
   if (stage < 5) note += ['Just planted. ', 'A tiny sprout! ', 'A little sapling. ', 'A young tree. ', 'Nearly grown. '][stage];
   note += lk.note;
@@ -160,43 +185,47 @@ function render() {
     const t = TREES[p.fruit] || TREES.apple;
     return el('img', { class: 'pixel', src: 'assets/fruits/' + p.fruit + '.png', alt: p.fruit, title: `${nameOf(p.user_id)} picked this`, style: `width:${t.w * 3}px;height:${t.h * 3}px` });
   }) : [el('span', { style: 'font-size:14px;color:#6B4A2F' }, 'Tap ripe fruit on the tree to pick it.')]));
-  $('basket-line').textContent = members.map((id) => `${nameOf(id)}: ${basket.filter((p) => p.user_id === id).length}`).join(' · ') + ' picked so far';
+  $('basket-line').textContent = members.map((id) => `${nameOf(id)}: ${basket.filter((p) => p.user_id === id).length}`).join(' · ') + ` picked in ${loc().short}`;
+  const other = allBasket.length - basket.length;
+  if (other) $('basket-line').textContent += ` · ${other} more from the other tree`;
 }
 
 async function pick(spot, fruit) {
-  const { data, error } = await sb.from('basket').insert({ fruit, day: today(), spot }).select().single();
+  const { data, error } = await sb.from('basket').insert({ location: where, fruit, day: today(), spot }).select().single();
   if (error) {
     if (error.code === '23505') { toast('Someone just picked that one!'); await load(); render(); return; }
     return toast(friendlyError(error));
   }
-  basket.push(data);
+  allBasket.push(data); basket.push(data);
   render();
 }
 
 async function water(done) {
   const day = today();
-  const q = done ? sb.from('waterings').delete().eq('user_id', ctx.me.id).eq('day', day) : sb.from('waterings').insert({ day });
+  const l = where;
+  const q = done ? sb.from('waterings').delete().eq('user_id', ctx.me.id).eq('location', l).eq('day', day) : sb.from('waterings').insert({ location: l, day });
   const { error } = await q;
   if (error) return toast(friendlyError(error));
-  if (done) waterings = waterings.filter((w) => !(w.user_id === ctx.me.id && w.day === day));
-  else waterings.push({ user_id: ctx.me.id, day });
+  if (done) allWaterings = allWaterings.filter((w) => !(w.user_id === ctx.me.id && w.location === l && w.day === day));
+  else allWaterings.push({ user_id: ctx.me.id, location: l, day });
+  select(l);
   render();
 }
 
 $('plant').addEventListener('click', async () => {
   if (!pendingKind) return;
-  if (!confirm(`Plant a ${pendingKind} tree? You can’t change the type later.`)) return;
-  const { data, error } = await sb.from('tree').update({ kind: pendingKind }).eq('id', 1).select().single();
+  if (!confirm(`Plant a ${pendingKind} tree in ${loc().short}? You can’t change the type later.`)) return;
+  const { data, error } = await sb.from('trees').update({ kind: pendingKind }).eq('location', where).select().single();
   if (error) return toast(friendlyError(error));
-  tree = data; pendingKind = null;
+  trees[where] = data; tree = data; pendingKind = null;
   render();
 });
 
 document.querySelectorAll('#locs button').forEach((b) => b.addEventListener('click', async () => {
-  if (b.dataset.l === tree.location) return;
-  const { data, error } = await sb.from('tree').update({ location: b.dataset.l }).eq('id', 1).select().single();
-  if (error) return toast(friendlyError(error));
-  tree = data;
+  if (b.dataset.l === where) return;
+  select(b.dataset.l);
+  pendingKind = null; previewStage = null; previewSeason = null; weather = null;
+  render();
   await loadWeather();
   render();
 }));
@@ -210,3 +239,5 @@ try {
 }
 // Keep the weather and "today" fresh if the page stays open.
 setInterval(async () => { await loadWeather(); render(); }, 30 * 60 * 1000);
+// …and roll over to the new day/season at local midnight even without a weather refresh.
+setInterval(() => { if (tree) render(); }, 5 * 60 * 1000);
