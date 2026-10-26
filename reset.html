@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silly Journal — Choose a new password</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<div class="shell">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:48px 16px">
+    <main class="card" style="width:100%;max-width:420px;padding:32px;gap:18px">
+      <span style="font-family:var(--hand);font-size:56px;line-height:1;color:var(--accent);text-align:center">Silly Journal</span>
+      <h1 class="card-title" style="margin:0;text-align:center">Choose a new password</h1>
+      <form id="form" style="display:flex;flex-direction:column;gap:16px">
+        <div class="field"><label for="new">New password</label><input class="input" id="new" type="password" autocomplete="new-password" minlength="10" required></div>
+        <div class="field"><label for="again">Type it again</label><input class="input" id="again" type="password" autocomplete="new-password" required></div>
+        <p class="small muted" style="margin:0">At least 10 characters.</p>
+        <p id="msg" class="msg" role="status" hidden></p>
+        <button class="btn btn-dark" type="submit">Save and continue</button>
+      </form>
+    </main>
+  </div>
+</div>
+<script type="module">
+import { sb, friendlyError } from './js/sb.js';
+import { catBackground } from './js/layout.js';
+catBackground(document.querySelector('.shell'), { fade: false });
+const msg = document.getElementById('msg');
+const say = (ok, t) => { msg.textContent = t; msg.className = 'msg ' + (ok ? 'msg-ok' : 'msg-err'); msg.hidden = false; };
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const a = document.getElementById('new').value, b = document.getElementById('again').value;
+  if (a.length < 10) return say(false, 'Use at least 10 characters.');
+  if (a !== b) return say(false, 'The two passwords don’t match.');
+  const { data } = await sb.auth.getSession();
+  if (!data.session) return say(false, 'This reset link has expired. Ask for a new one.');
+  const { error } = await sb.auth.updateUser({ password: a });
+  if (error) return say(false, friendlyError(error));
+  say(true, 'Saved! Taking you to the journal…');
+  setTimeout(() => location.replace('home.html'), 1200);
+});
+</script>
+</body>
+</html>

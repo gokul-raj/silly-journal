@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silly Journal</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  .hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; margin: 16px 0 36px; }
+  .hero .big { margin: 0; font-family: var(--hand); font-weight: 500; font-size: clamp(72px, 12vw, 128px); line-height: .95; color: var(--accent); }
+  .hero .facts { display: flex; flex-direction: column; gap: 4px; font-size: clamp(18px, 2.4vw, 25px); color: var(--muted); }
+  .entry-card { background: #fff; box-shadow: 0 1px 2px rgba(18,20,23,.06); display: flex; flex-direction: column; overflow: hidden; }
+  .entry-card .photo { height: 280px; object-fit: cover; width: 100%; display: block; background: #FFDEF9; }
+  .entry-card h2 { margin: 0; font-family: var(--ui); font-weight: 600; font-size: 28px; line-height: 64px; }
+  .entry-card h2 a { text-decoration: none; }
+  .entry-card .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-family: var(--nav); font-size: 14px; color: var(--muted); }
+  .entry-card .react-bar { padding-left: 76px; }
+  .access { margin-left: auto; }
+  .boxes { display: flex; gap: 6px; }
+  .boxes span { width: 18px; height: 18px; border: 1.5px dashed #9AA7B4; background: #fff; }
+  .boxes span.on { background: var(--accent); border: 1px solid var(--ink); }
+  .mini-tree { position: relative; flex: 0 0 96px; width: 96px; height: 108px; overflow: hidden; }
+  @media (max-width: 560px) { .paper { padding-left: 72px; padding-right: 16px; } .entry-card .react-bar { padding-left: 16px; } }
+</style>
+</head>
+<body class="wait">
+<div class="shell">
+  <main class="page">
+    <section class="hero">
+      <p class="big">Silly Journal</p>
+      <div class="facts"><span><i>Together</i> - 08/02/2025</span><span id="counts">&nbsp;</span></div>
+    </section>
+    <div class="cols">
+      <div class="col-main">
+        <section class="paper" aria-label="Today's page" style="box-shadow:0 1px 2px rgba(18,20,23,.06)">
+          <span class="hand-title" style="line-height:64px;font-size:30px">Today's page</span>
+          <p style="margin:0;color:var(--soft)">A fresh notebook page to type on, draw on and cover in stickers.</p>
+          <div class="row" style="padding-top:12px;gap:16px">
+            <a class="btn btn-accent" href="write.html">Open today's page</a>
+            <span class="small muted" style="font-family:var(--nav)">Write · Draw · Stickers</span>
+          </div>
+        </section>
+        <div id="feed" style="display:flex;flex-direction:column;gap:28px"></div>
+        <button class="btn" id="more" type="button" hidden style="align-self:center">Show older pages</button>
+      </div>
+      <aside class="col-side">
+        <section class="card" id="fit-card" aria-label="Silly Fitness summary">
+          <div class="row spread"><h3 class="hand-title">Silly Fitness</h3><a href="fitness.html" class="small" style="font-weight:600">Open</a></div>
+          <div id="fit-body" class="small muted">Loading…</div>
+        </section>
+        <section class="card" id="tree-card" aria-label="Our Tree summary">
+          <div class="row spread"><h3 class="hand-title">Our Tree</h3><a href="tree.html" class="small" style="font-weight:600">Open</a></div>
+          <div id="tree-body" class="small muted">Loading…</div>
+        </section>
+        <section class="card" id="otd" aria-label="On this day" hidden>
+          <h3 class="hand-title">On this day</h3>
+          <div id="otd-body"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+<script type="module" src="js/home.js"></script>
+</body>
+</html>

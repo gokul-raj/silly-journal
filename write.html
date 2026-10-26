@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silly Journal — Write today's page</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/notebook.css">
+<style>
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; font-family: var(--nav); font-size: 14px; }
+  .topbar .group { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .toolbar { background: #fff; padding: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-family: var(--nav); font-size: 14px; }
+  .toolbar .sep { width: 1px; height: 28px; background: #DCE3EA; margin: 0 4px; }
+  .toolbar select { height: 44px; border: 1px solid #CBD2DA; border-radius: 4px; padding: 0 8px; background: #fff; font-family: var(--nav); font-size: 14px; }
+  .toolbar .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+  .swatch { width: 38px; height: 44px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .swatch span { width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(18,20,23,.2); }
+  .swatch[aria-pressed="true"] span { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+  .nb-page.drawing .nb-drawing { pointer-events: auto; touch-action: none; cursor: crosshair; }
+  .nb-page.drawing #sticker-layer { pointer-events: none; }
+  #sticker-layer .nb-sticker { cursor: grab; touch-action: none; }
+  #sticker-layer .nb-sticker.sel { outline: 1.5px dashed #2F5BB7; outline-offset: 6px; }
+  .stk-tools { position: absolute; z-index: 999; display: flex; gap: 2px; background: var(--ink); border-radius: 8px; padding: 2px; }
+  .stk-tools button { width: 40px; height: 40px; border: 0; background: transparent; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .place-input { border: 0; background: transparent; font-family: var(--hand); font-size: 26px; color: var(--accent); width: 220px; padding: 0; }
+  .place-input::placeholder { color: #E9A3BD; }
+  .drawer { background: #fff; padding: 20px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 12px; }
+  .drop { border: 2px dashed #9AA7B4; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+  .drop.over { border-color: var(--accent); background: #FFF3F8; }
+  .stk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .stk-grid button { aspect-ratio: 1; border: 0; background: var(--bg); padding: 6px; cursor: grab; display: flex; align-items: center; justify-content: center; }
+  .stk-grid img { max-width: 100%; max-height: 100%; pointer-events: none; }
+  .editor-cols { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .editor-main { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .editor-side { flex: 1 1 260px; min-width: 0; }
+</style>
+</head>
+<body class="wait" data-footer="written by the two of us">
+<div class="shell">
+  <main class="page" style="max-width:1320px">
+    <div class="topbar">
+      <a href="home.html" class="row" style="min-height:44px;text-decoration:none;font-size:16px">← All entries</a>
+      <div class="group">
+        <span class="muted" id="access-label">Who can edit</span>
+        <div class="seg on-white" role="group" aria-labelledby="access-label" id="access">
+          <button type="button" data-v="author" aria-pressed="false">Only me</button>
+          <button type="button" data-v="both" aria-pressed="true">Both of us</button>
+        </div>
+        <label for="paper" class="muted">Paper</label>
+        <select id="paper" class="input" style="height:44px;width:auto">
+          <option value="ruled">Ruled</option><option value="grid">Grid</option><option value="dots">Dots</option><option value="blank">Blank</option>
+        </select>
+        <span class="muted" id="status" role="status"></span>
+        <button class="btn btn-accent" id="save" type="button">Post to journal</button>
+      </div>
+    </div>
+    <p class="small muted" id="access-hint" style="margin:-6px 0 12px;text-align:right"></p>
+
+    <div class="editor-cols">
+      <div class="editor-main">
+        <div class="toolbar" role="toolbar" aria-label="Text formatting" id="fmt">
+          <button class="icon-btn" data-cmd="undo" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
+          <button class="icon-btn" data-cmd="redo" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg></button>
+          <span class="sep" aria-hidden="true"></span>
+          <label for="block" class="sr-only">Paragraph style</label>
+          <select id="block"><option value="p">Body</option><option value="h2">Heading</option><option value="h3">Subheading</option><option value="blockquote">Quote</option></select>
+          <label for="font" class="sr-only">Font</label>
+          <select id="font"><option value="">Font</option><option value="Newsreader">Newsreader</option><option value="Caveat">Handwriting</option><option value="Helvetica">Helvetica</option><option value="DM Sans">DM Sans</option></select>
+          <label for="size" class="sr-only">Text size</label>
+          <select id="size"><option value="">Size</option><option value="2">Small</option><option value="3">Normal</option><option value="5">Large</option><option value="6">Huge</option></select>
+          <span class="sep" aria-hidden="true"></span>
+          <button class="icon-btn" data-cmd="bold" aria-label="Bold" style="font-weight:800;font-size:17px">B</button>
+          <button class="icon-btn" data-cmd="italic" aria-label="Italic" style="font-family:var(--serif);font-style:italic;font-size:19px">I</button>
+          <button class="icon-btn" data-cmd="underline" aria-label="Underline" style="text-decoration:underline;font-size:17px">U</button>
+          <button class="icon-btn" data-cmd="strikeThrough" aria-label="Strikethrough" style="text-decoration:line-through;font-size:17px">S</button>
+          <label class="icon-btn" title="Text color" style="position:relative;cursor:pointer"><span aria-hidden="true" style="font-weight:600">A</span><span class="sr-only">Text color</span><input type="color" id="fore" value="#2F5BB7" style="position:absolute;inset:auto 6px 4px 6px;height:5px;width:auto;border:0;padding:0;opacity:1"></label>
+          <button class="icon-btn" data-cmd="hiliteColor" data-arg="#FDE68A" aria-label="Highlight"><svg viewBox="0 0 24 24"><path d="M15 4l5 5-8 8H7v-5z"/><path d="M4 21h9" stroke="#E0B21A" stroke-width="3"/></svg></button>
+          <span class="sep" aria-hidden="true"></span>
+          <button class="icon-btn" data-cmd="justifyLeft" aria-label="Align left"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 10h10M4 14h16M4 18h10"/></svg></button>
+          <button class="icon-btn" data-cmd="justifyCenter" aria-label="Align center"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 10h10M4 14h16M7 18h10"/></svg></button>
+          <button class="icon-btn" data-cmd="insertUnorderedList" aria-label="Bulleted list"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg></button>
+          <button class="icon-btn" id="checklist" aria-label="Checklist"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="6" rx="1"/><path d="M4.5 7l1 1 2-2"/><rect x="3" y="14" width="6" height="6" rx="1"/><path d="M12 7h9M12 17h9"/></svg></button>
+          <span class="sep" aria-hidden="true"></span>
+          <label class="icon-btn" style="cursor:pointer" title="Insert photo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-7 7"/></svg><span class="sr-only">Insert photo</span><input type="file" id="photo" accept="image/*" class="sr-only"></label>
+          <button class="icon-btn" data-cmd="insertHorizontalRule" aria-label="Insert divider"><svg viewBox="0 0 24 24"><path d="M3 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg></button>
+        </div>
+
+        <div class="toolbar" role="toolbar" aria-label="Drawing tools" id="drawbar">
+          <button class="icon-btn" data-tool="type" aria-pressed="true" aria-label="Type"><svg viewBox="0 0 24 24"><path d="M9 4h6M12 4v16M9 20h6"/></svg></button>
+          <button class="icon-btn" data-tool="pencil" aria-pressed="false" aria-label="Pencil"><svg viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/></svg></button>
+          <button class="icon-btn" data-tool="fill" aria-pressed="false" aria-label="Fill"><svg viewBox="0 0 24 24"><path d="M4 11l7-7 7 7-7 7z"/><path d="M4 11h14"/><path d="M20.5 14.5s-1.5 2-1.5 3a1.5 1.5 0 003 0c0-1-1.5-3-1.5-3z"/></svg></button>
+          <button class="icon-btn" data-tool="eraser" aria-pressed="false" aria-label="Eraser"><svg viewBox="0 0 24 24"><path d="M15 4l6 6-9 9H7l-4-4z"/><path d="M9 10l6 6"/><path d="M12 20h9"/></svg></button>
+          <button class="icon-btn" id="draw-undo" aria-label="Undo drawing"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
+          <span class="sep" aria-hidden="true"></span>
+          <label for="brush" class="muted" style="padding-left:4px">Size</label>
+          <input id="brush" type="range" min="1" max="40" value="5" style="width:110px;height:44px;accent-color:var(--accent)">
+          <span class="sep" aria-hidden="true"></span>
+          <div role="group" aria-label="Colors" class="row" style="gap:0" id="swatches"></div>
+          <label for="custom" class="sr-only">Custom color</label>
+          <input type="color" id="custom" value="#5B8DEF" style="width:44px;height:44px;border:0;padding:6px;background:transparent;cursor:pointer">
+          <span class="sep" aria-hidden="true"></span>
+          <button class="btn btn-ghost" id="longer" type="button" style="min-height:44px;padding:0 10px">+ Longer page</button>
+        </div>
+
+        <div class="nb-frame" id="frame">
+          <div class="nb-page paper-ruled" id="page">
+            <div class="nb-content">
+              <div class="nb-date"><span id="date"></span><span aria-hidden="true">·</span><label for="place" class="sr-only">Place</label><input id="place" class="place-input" placeholder="Where?" maxlength="60"><span id="author-chip"></span></div>
+              <h1 class="nb-title" id="title" contenteditable="true" data-placeholder="Today's title" spellcheck="true"></h1>
+              <div class="nb-body" id="body" contenteditable="true" data-placeholder="Start writing… type, add photos, then draw or stick things on top." spellcheck="true"></div>
+            </div>
+            <canvas class="nb-drawing" id="draw" aria-label="Drawing layer"></canvas>
+            <div id="sticker-layer"></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="editor-side" aria-label="Stickers">
+        <div class="drawer">
+          <h2 class="card-title" style="margin:0">Stickers</h2>
+          <div class="drop" id="drop">
+            <span style="font-weight:600">Drop your own stickers here</span>
+            <span class="small muted">PNG with a see-through background works best</span>
+            <label class="btn" style="cursor:pointer">Upload stickers<input type="file" id="stk-upload" accept="image/png,image/webp,image/gif,image/jpeg" multiple class="sr-only"></label>
+          </div>
+          <div class="seg" role="group" aria-label="Sticker sets" id="stk-tabs" style="width:100%">
+            <button type="button" data-tab="cats" aria-pressed="true" style="flex:1">Cats</button>
+            <button type="button" data-tab="ours" aria-pressed="false" style="flex:1">Ours</button>
+          </div>
+          <div class="stk-grid" id="stk-grid"></div>
+          <p class="small muted" style="margin:0">Tap a sticker to add it, or drag it onto the page. Tap one on the page to move, turn, resize or remove it.</p>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+<script type="module" src="js/write.js"></script>
+</body>
+</html>

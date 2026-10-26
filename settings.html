@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silly Journal — Settings</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  .settings { max-width: 720px; margin: 0 auto; }
+  .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
+  .card form { display: flex; flex-direction: column; gap: 16px; }
+</style>
+</head>
+<body class="wait">
+<div class="shell">
+  <main class="page settings">
+    <h1 class="page-title">Settings</h1>
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <section class="card" aria-labelledby="acct">
+        <h2 id="acct" class="card-title">Your account</h2>
+        <form id="profile-form">
+          <div class="two">
+            <div class="field"><label for="uname">Username</label><input class="input" id="uname" readonly></div>
+            <div class="field"><label for="dname">Name shown on posts</label><input class="input" id="dname" maxlength="40" required></div>
+          </div>
+          <p class="small muted" style="margin:0" id="signed-as"></p>
+          <p id="profile-msg" class="msg" role="status" hidden></p>
+          <button class="btn" type="submit" style="align-self:flex-start">Save name</button>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="pw">
+        <h2 id="pw" class="card-title">Change your password</h2>
+        <form id="pw-form">
+          <div class="field"><label for="cur">Current password</label><input class="input" id="cur" type="password" autocomplete="current-password" required></div>
+          <div class="two">
+            <div class="field"><label for="new">New password</label><input class="input" id="new" type="password" autocomplete="new-password" minlength="10" aria-describedby="pw-rule" required></div>
+            <div class="field"><label for="confirm">Type it again</label><input class="input" id="confirm" type="password" autocomplete="new-password" required></div>
+          </div>
+          <p id="pw-rule" class="small muted" style="margin:0">At least 10 characters. A short phrase you'll remember works well.</p>
+          <p id="pw-msg" class="msg" role="status" hidden></p>
+          <button class="btn btn-dark" type="submit" style="align-self:flex-start">Save new password</button>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="reset">
+        <h2 id="reset" class="card-title"></h2>
+        <p style="margin:0" class="soft" id="reset-text"></p>
+        <p id="reset-msg" class="msg" role="status" hidden></p>
+        <button class="btn" type="button" id="reset-btn" style="align-self:flex-start"></button>
+      </section>
+
+      <section class="card" aria-labelledby="devices">
+        <h2 id="devices" class="card-title">Signed in elsewhere?</h2>
+        <p style="margin:0">Signs you out on every phone and computer, including this one.</p>
+        <button class="btn" type="button" id="everywhere" style="align-self:flex-start;color:var(--err);border-color:var(--err)">Sign out everywhere</button>
+      </section>
+    </div>
+  </main>
+</div>
+<script type="module" src="js/settings.js"></script>
+</body>
+</html>

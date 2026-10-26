@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silly Journal — Sign in</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 48px 16px; }
+  .login { width: 100%; max-width: 420px; background: #fff; box-shadow: 0 1px 2px rgba(18,20,23,.08), 0 16px 40px rgba(18,20,23,.12); padding: 36px 32px 32px; display: flex; flex-direction: column; gap: 22px; }
+  .login-head { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+  .login-head .big { font-family: var(--hand); font-size: 64px; line-height: 1; color: var(--accent); }
+  .login-head h1 { margin: 0; font-family: var(--nav); font-weight: 600; font-size: 18px; }
+  .pw { display: flex; border: 1px solid var(--field); border-radius: 4px; background: #fff; }
+  .pw input { flex: 1; min-width: 0; height: 46px; border: 0; padding: 0 14px; font-size: 16px; background: transparent; }
+  .pw button { min-width: 64px; border: 0; border-left: 1px solid var(--line); background: transparent; font-weight: 600; font-size: 14px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="login-wrap">
+    <main class="login">
+      <div class="login-head">
+        <svg width="40" height="40" viewBox="0 0 28 28" fill="none" stroke="var(--accent)" stroke-width="2" aria-hidden="true"><circle cx="11" cy="14" r="7"/><circle cx="17" cy="14" r="7"/></svg>
+        <span class="big">Silly Journal</span>
+        <h1>Xinyi &amp; Gokul, sign in</h1>
+      </div>
+      <form id="form" style="display:flex;flex-direction:column;gap:16px" novalidate>
+        <div class="field">
+          <label for="username">Username</label>
+          <input class="input" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="pw">
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button type="button" id="toggle" aria-pressed="false" aria-label="Show password">Show</button>
+          </div>
+        </div>
+        <label class="row" style="min-height:44px;font-size:15px;cursor:pointer">
+          <input type="checkbox" id="remember" checked style="width:20px;height:20px;accent-color:var(--accent)">
+          Keep me signed in on this device
+        </label>
+        <p id="error" class="msg msg-err" role="alert" hidden></p>
+        <button class="btn btn-dark" id="submit" type="submit" style="min-height:48px;font-size:16px">Sign in</button>
+      </form>
+      <p class="small muted" style="margin:0;text-align:center">Forgot your password? Ask the other one of you to send you a reset link from Settings.</p>
+    </main>
+  </div>
+</div>
+<script type="module" src="js/login.js"></script>
+</body>
+</html>

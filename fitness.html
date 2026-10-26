@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silly Journal — Silly Fitness</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  .streak { background: #fff; box-shadow: 0 1px 2px rgba(18,20,23,.08); display: flex; flex-wrap: wrap; margin-bottom: 32px; }
+  .streak > div { padding: 24px 28px; }
+  .streak .s1 { flex: 1 1 240px; display: flex; align-items: center; gap: 18px; border-right: 1px solid var(--line); }
+  .streak .s2 { flex: 999 1 380px; display: flex; flex-direction: column; gap: 12px; border-right: 1px solid var(--line); }
+  .streak .s3 { flex: 1 1 220px; display: flex; flex-direction: column; gap: 10px; }
+  .slots { display: flex; flex-wrap: wrap; gap: 6px; }
+  .slots span { width: 28px; height: 28px; background: #fff; border: 1.5px dashed #9AA7B4; }
+  .slots span.on { background: var(--accent); border: 1px solid var(--ink); }
+  .stepper button { width: 44px; height: 44px; border: 1px solid #CBD2DA; background: #fff; font-size: 22px; cursor: pointer; }
+  .grid4 { display: grid; grid-template-columns: minmax(0,3fr) repeat(3, minmax(0,1fr)) 44px; gap: 6px; align-items: center; }
+  .grid4 .input { height: 40px; padding: 0 10px; font-size: 15px; }
+  .photo-pick { flex: 0 0 200px; height: 200px; border: 2px dashed #9AA7B4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; color: var(--muted); cursor: pointer; overflow: hidden; position: relative; }
+  .photo-pick img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .post { background: #fff; box-shadow: 0 1px 2px rgba(18,20,23,.08); display: flex; flex-direction: column; }
+  .post .gym-photo { flex: 0 0 240px; width: 240px; height: 240px; object-fit: cover; background: #FFDEF9; }
+  .workouts { list-style: none; margin: 0; padding: 0; }
+  .workouts li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+  @media (max-width: 560px) { .post .gym-photo { width: 100%; flex-basis: auto; height: 280px; } .photo-pick { flex-basis: 100%; } }
+</style>
+</head>
+<body class="wait" data-footer="sweated by the two of us">
+<div class="shell">
+  <main class="page">
+    <div class="row spread" style="align-items:flex-end;margin-bottom:24px">
+      <h1 class="page-title" style="margin:0">Silly Fitness</h1>
+      <p class="muted" style="margin:0 0 12px;max-width:360px;font-size:18px">Post the gym photo, log the workout, keep the streak alive.</p>
+    </div>
+
+    <section class="streak" aria-label="Gym streak">
+      <div class="s1">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="var(--accent)" stroke="#121417" stroke-width="0.9" stroke-linejoin="round" aria-hidden="true"><path d="M12 22c-4 0-7-2.8-7-6.6 0-3.2 2.2-5.2 3.6-7.2.4 1.6 1.3 2.6 2.2 3C10.4 7.6 12 4.4 14.8 2c-.3 3.2 1 5.2 2.4 7 1.2 1.5 1.8 3.2 1.8 5 0 4.4-3 8-7 8z"/><path d="M12 22c-1.8 0-3-1.3-3-3 0-1.8 1.5-3 2.4-4.4.6 1.2 1.6 1.8 2.4 2.2.3-.8.4-1.6.3-2.4 1.1 1 1.9 2.4 1.9 4 0 2-1.6 3.6-4 3.6z" fill="#FFD1E2"/></svg>
+        <div style="display:flex;flex-direction:column"><span id="streak-n" style="font-weight:700;font-size:56px;line-height:1">0</span><span class="muted small" id="streak-sub">week streak</span></div>
+      </div>
+      <div class="s2">
+        <div class="row spread"><span style="font-weight:600;font-size:17px">This week</span><span class="small muted" id="days-left"></span></div>
+        <div id="people" style="display:flex;flex-direction:column;gap:12px"></div>
+        <p class="small muted" style="margin:0" id="rule-line"></p>
+      </div>
+      <div class="s3">
+        <span id="goal-label" style="font-weight:600;font-size:17px">Weekly goal, each</span>
+        <div class="row stepper" role="group" aria-labelledby="goal-label" style="gap:4px">
+          <button type="button" id="dec" aria-label="Fewer posts per week">−</button>
+          <span aria-live="polite" id="goal-n" style="min-width:56px;text-align:center;font-weight:700;font-size:32px">3</span>
+          <button type="button" id="inc" aria-label="More posts per week">+</button>
+        </div>
+        <span class="small muted" id="goal-note">gym posts per person. A change starts next Monday, so it can't break this week's streak.</span>
+      </div>
+    </section>
+
+    <div class="cols">
+      <div class="col-main">
+        <section class="card" aria-label="New post" style="padding:24px 28px;gap:16px">
+          <div class="seg" role="group" aria-label="Post type" id="kind" style="align-self:flex-start">
+            <button type="button" data-k="gym" aria-pressed="true">Gym post</button>
+            <button type="button" data-k="question" aria-pressed="false">Question</button>
+          </div>
+          <form id="post-form" style="display:flex;flex-direction:column;gap:16px">
+            <div id="gym-fields" class="row" style="align-items:flex-start;gap:16px">
+              <label class="photo-pick" id="pick" for="gym-photo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>
+                <span style="font-weight:600;color:var(--ink)">Add gym photo</span><span class="small">Required to count</span>
+              </label>
+              <input id="gym-photo" type="file" accept="image/*" class="sr-only">
+              <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:8px">
+                <span style="font-weight:600">Workout</span>
+                <div class="grid4 small muted" aria-hidden="true"><span>Exercise</span><span>Sets</span><span>Reps</span><span>Weight</span><span></span></div>
+                <div id="rows" style="display:flex;flex-direction:column;gap:6px"></div>
+                <button type="button" class="btn btn-ghost" id="add-row" style="align-self:flex-start;padding:0 4px;text-decoration:underline">+ Add exercise</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="text" id="text-label" class="sr-only">Note</label>
+              <textarea class="input" id="text" rows="2" placeholder="How did it go?"></textarea>
+            </div>
+            <div id="q-photo-row" class="row" hidden>
+              <label class="btn" for="q-photo" style="cursor:pointer">Add a photo (optional)</label>
+              <input id="q-photo" type="file" accept="image/*" class="sr-only">
+              <span class="small muted" id="q-photo-name"></span>
+            </div>
+            <p id="form-msg" class="msg msg-err" role="alert" hidden></p>
+            <div class="row spread">
+              <span class="small" id="counts-line" style="font-weight:600;color:#0F6B4F">Counts toward this week's streak</span>
+              <button class="btn btn-accent" type="submit" id="post-btn">Post</button>
+            </div>
+          </form>
+        </section>
+        <div id="feed" style="display:flex;flex-direction:column;gap:24px"></div>
+        <button class="btn" id="more" type="button" hidden style="align-self:center">Show older posts</button>
+      </div>
+      <aside class="col-side">
+        <section class="card">
+          <h2 class="hand-title">How the streak works</h2>
+          <ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:15px;color:var(--soft)" id="rules"></ol>
+        </section>
+        <section class="card">
+          <h2 class="card-title" style="font-size:17px">Show</h2>
+          <div class="seg" role="group" aria-label="Filter posts" id="filter">
+            <button type="button" data-f="all" aria-pressed="true">All</button>
+            <button type="button" data-f="gym" aria-pressed="false">Gym posts</button>
+            <button type="button" data-f="question" aria-pressed="false">Questions</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+<script type="module" src="js/fitness.js"></script>
+</body>
+</html>

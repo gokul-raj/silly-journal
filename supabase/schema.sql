@@ -1,0 +1,224 @@
+-- Silly Journal database schema
+-- Paste this whole file into Supabase → SQL Editor → New query → Run.
+-- It is safe to run more than once.
+
+-- ─────────────────────────────────────────────────────────────
+-- Members: exactly the two of you
+-- ─────────────────────────────────────────────────────────────
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  username text unique not null check (username ~ '^[a-z0-9_]{3,32}$'),
+  display_name text not null,
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.is_member() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid());
+$$;
+
+-- Lets the sign-in page turn a username into the account email.
+create or replace function public.login_email(p_username text) returns text
+language sql stable security definer set search_path = public, auth as $$
+  select u.email from auth.users u join public.profiles p on p.id = u.id
+  where p.username = lower(trim(p_username)) limit 1;
+$$;
+revoke all on function public.login_email(text) from public;
+grant execute on function public.login_email(text) to anon, authenticated;
+
+alter table public.profiles enable row level security;
+drop policy if exists "members read profiles" on public.profiles;
+create policy "members read profiles" on public.profiles for select using (public.is_member());
+drop policy if exists "edit own profile" on public.profiles;
+create policy "edit own profile" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
+
+-- ─────────────────────────────────────────────────────────────
+-- Journal
+-- ─────────────────────────────────────────────────────────────
+create table if not exists public.entries (
+  id uuid primary key default gen_random_uuid(),
+  author uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  title text not null default '',
+  place text not null default '',
+  body_html text not null default '',
+  drawing_path text,
+  stickers jsonb not null default '[]'::jsonb,
+  paper text not null default 'ruled' check (paper in ('ruled','grid','dots','blank')),
+  access text not null default 'both' check (access in ('author','both')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.entries enable row level security;
+drop policy if exists "members read entries" on public.entries;
+create policy "members read entries" on public.entries for select using (public.is_member());
+drop policy if exists "write own entries" on public.entries;
+create policy "write own entries" on public.entries for insert with check (author = auth.uid() and public.is_member());
+drop policy if exists "edit shared or own entries" on public.entries;
+create policy "edit shared or own entries" on public.entries for update
+  using (public.is_member() and (author = auth.uid() or access = 'both'))
+  with check (public.is_member() and (author = auth.uid() or access = 'both'));
+drop policy if exists "delete own entries" on public.entries;
+create policy "delete own entries" on public.entries for delete using (author = auth.uid());
+
+-- Only the author may change who can edit, or the authorship itself.
+create or replace function public.entries_guard() returns trigger language plpgsql as $$
+begin
+  if new.author <> old.author then raise exception 'author cannot change'; end if;
+  if new.access <> old.access and auth.uid() <> old.author then
+    raise exception 'only the writer can change who can edit';
+  end if;
+  new.updated_at := now();
+  return new;
+end $$;
+drop trigger if exists entries_guard on public.entries;
+create trigger entries_guard before update on public.entries for each row execute function public.entries_guard();
+
+create table if not exists public.entry_likes (
+  entry_id uuid references public.entries (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (entry_id, user_id)
+);
+create table if not exists public.entry_comments (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references public.entries (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  body text not null check (length(body) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.sticker_uploads (
+  id uuid primary key default gen_random_uuid(),
+  owner uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  path text not null,
+  created_at timestamptz not null default now()
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- Silly Fitness
+-- ─────────────────────────────────────────────────────────────
+create table if not exists public.gym_posts (
+  id uuid primary key default gen_random_uuid(),
+  author uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('gym','question')),
+  photo_path text,
+  workouts jsonb not null default '[]'::jsonb,
+  body text not null default '',
+  created_at timestamptz not null default now(),
+  constraint gym_needs_photo check (kind <> 'gym' or photo_path is not null)
+);
+create table if not exists public.gym_likes (
+  post_id uuid references public.gym_posts (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+create table if not exists public.gym_comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.gym_posts (id) on delete cascade,
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  body text not null check (length(body) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+-- Weekly goal history: a change only applies from the following Monday.
+create table if not exists public.gym_goals (
+  id uuid primary key default gen_random_uuid(),
+  goal int not null check (goal between 1 and 7),
+  effective_from date not null,
+  created_by uuid not null default auth.uid() references public.profiles (id),
+  created_at timestamptz not null default now()
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- Our Tree
+-- ─────────────────────────────────────────────────────────────
+create table if not exists public.tree (
+  id int primary key default 1 check (id = 1),
+  kind text check (kind in ('mango','papaya','jackfruit','apple','cherry','lemon','orange','banana')),
+  location text not null default 'ithaca' check (location in ('ithaca','santaclara')),
+  planted_on date,
+  updated_at timestamptz not null default now()
+);
+insert into public.tree (id) values (1) on conflict do nothing;
+
+-- The tree type is chosen once, when it is planted.
+create or replace function public.tree_guard() returns trigger language plpgsql as $$
+begin
+  if old.kind is not null and new.kind is distinct from old.kind then
+    raise exception 'the tree is already planted';
+  end if;
+  if old.kind is null and new.kind is not null then new.planted_on := current_date; end if;
+  new.updated_at := now();
+  return new;
+end $$;
+drop trigger if exists tree_guard on public.tree;
+create trigger tree_guard before update on public.tree for each row execute function public.tree_guard();
+
+create table if not exists public.waterings (
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  day date not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, day)
+);
+create table if not exists public.basket (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references public.profiles (id) on delete cascade,
+  fruit text not null,
+  day date not null,
+  spot int not null,
+  created_at timestamptz not null default now(),
+  unique (day, spot)
+);
+
+-- ─────────────────────────────────────────────────────────────
+-- Shared rules for the member-only tables: read if you are one of
+-- the two members, write rows as yourself, delete only your own.
+-- ─────────────────────────────────────────────────────────────
+do $$
+declare r record; t text; owner_col text;
+begin
+  for r in select * from (values
+    ('entry_likes','user_id'), ('entry_comments','user_id'), ('sticker_uploads','owner'),
+    ('gym_posts','author'), ('gym_likes','user_id'), ('gym_comments','user_id'),
+    ('gym_goals','created_by'), ('waterings','user_id'), ('basket','user_id')
+  ) as v(tbl, col)
+  loop
+    t := r.tbl; owner_col := r.col;
+    execute format('alter table public.%I enable row level security', t);
+    execute format('drop policy if exists "members read" on public.%I', t);
+    execute format('create policy "members read" on public.%I for select using (public.is_member())', t);
+    execute format('drop policy if exists "members add own" on public.%I', t);
+    execute format('create policy "members add own" on public.%I for insert with check (public.is_member() and %I = auth.uid())', t, owner_col);
+    execute format('drop policy if exists "delete own" on public.%I', t);
+    execute format('create policy "delete own" on public.%I for delete using (%I = auth.uid())', t, owner_col);
+  end loop;
+end $$;
+
+drop policy if exists "edit own gym posts" on public.gym_posts;
+create policy "edit own gym posts" on public.gym_posts for update using (author = auth.uid()) with check (author = auth.uid());
+
+alter table public.tree enable row level security;
+drop policy if exists "members read tree" on public.tree;
+create policy "members read tree" on public.tree for select using (public.is_member());
+drop policy if exists "members update tree" on public.tree;
+create policy "members update tree" on public.tree for update using (public.is_member()) with check (public.is_member());
+
+-- ─────────────────────────────────────────────────────────────
+-- Private photo storage
+-- ─────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public) values ('journal', 'journal', false) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('stickers', 'stickers', false) on conflict (id) do nothing;
+insert into storage.buckets (id, name, public) values ('gym', 'gym', false) on conflict (id) do nothing;
+
+drop policy if exists "members read files" on storage.objects;
+create policy "members read files" on storage.objects for select
+  using (bucket_id in ('journal','stickers','gym') and public.is_member());
+drop policy if exists "members upload files" on storage.objects;
+create policy "members upload files" on storage.objects for insert
+  with check (bucket_id in ('journal','stickers','gym') and public.is_member());
+drop policy if exists "members replace files" on storage.objects;
+create policy "members replace files" on storage.objects for update
+  using (bucket_id in ('journal','stickers','gym') and public.is_member());
+drop policy if exists "owners delete files" on storage.objects;
+create policy "owners delete files" on storage.objects for delete
+  using (bucket_id in ('journal','stickers','gym') and owner = auth.uid());

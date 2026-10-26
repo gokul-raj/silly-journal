@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silly Journal — Page</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/notebook.css">
+</head>
+<body class="wait">
+<div class="shell">
+  <main class="page" style="max-width:860px">
+    <div class="row spread" style="margin-bottom:16px;font-family:var(--nav)">
+      <a href="home.html" style="min-height:44px;display:flex;align-items:center;text-decoration:none">← All entries</a>
+      <div class="row" id="actions"></div>
+    </div>
+    <div class="nb-frame" id="frame">
+      <div class="nb-page paper-ruled" id="page">
+        <div class="nb-content">
+          <div class="nb-date" id="meta"></div>
+          <h1 class="nb-title" id="title"></h1>
+          <div class="nb-body" id="body" style="min-height:0"></div>
+        </div>
+        <img class="nb-drawing" id="drawing" alt="" hidden>
+        <div id="sticker-layer"></div>
+      </div>
+    </div>
+    <section class="card" aria-label="Likes and comments" style="margin-top:28px;padding:0;gap:0" id="reactions"></section>
+  </main>
+</div>
+<script type="module" src="js/entry.js"></script>
+</body>
+</html>
