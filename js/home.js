@@ -1,7 +1,7 @@
 import { sb, requireUser, nameOf, chipClass, signedUrl, el, fmtDate, toast, friendlyError } from './sb.js';
 import { mountLayout } from './layout.js';
 import { excerpt, firstPhotoPath } from './notebook.js';
-import { loadReactions, likeButton, commentCountText } from './reactions.js';
+import { loadReactions, likeButton, commentThread, commentCountText } from './reactions.js';
 import { computeStreak } from './streak.js';
 import { LOCATIONS } from './config.js';
 import { TREES, STAGES, stageFor, wateringSummary, seasonFor, look, getWeather, LEAFY, BARE, FILTERS } from './treelogic.js';
@@ -49,10 +49,29 @@ async function card(e, likers, cmts) {
       el('p', { style: 'margin:0;color:var(--soft)' }, excerpt(e.body_html) || ' ')),
     el('div', { class: 'react-bar' },
       likeButton('entry', e.id, likers, ctx.me.id),
-      el('a', { class: 'like-btn', href: href + '#comments', style: 'text-decoration:none', html: BUBBLE + '<span></span>' }),
+      el('button', { type: 'button', class: 'like-btn comment-toggle', 'aria-expanded': 'false', 'aria-controls': 'cm-' + e.id, html: BUBBLE + '<span></span>' }),
       el('span', { class: 'chip access ' + (shared ? 'chip-ok' : 'chip-lock'), html: (shared ? PEN : LOCK) + '<span></span>' }),
       last ? el('p', { class: 'last-comment' }, el('strong', { style: 'color:var(--ink)' }, nameOf(last.user_id) + ' '), last.body) : null));
-  c.querySelector('.react-bar a span').textContent = commentCountText(cmts.length);
+  // Comments open right here in the card, with the box ready to type in.
+  const toggle = c.querySelector('.comment-toggle');
+  const countLabel = toggle.querySelector('span');
+  countLabel.textContent = commentCountText(cmts.length);
+  const preview = c.querySelector('.last-comment');
+  let thread = null;
+  toggle.addEventListener('click', () => {
+    if (!thread) {
+      thread = commentThread('entry', e.id, cmts, { onCount: (n) => { countLabel.textContent = commentCountText(n); } });
+      thread.id = 'cm-' + e.id;
+      thread.style.borderTop = '1px solid var(--line)';
+      thread.style.background = '#fff';
+      c.append(thread);
+    }
+    const open = thread.hidden || toggle.getAttribute('aria-expanded') === 'false';
+    thread.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    if (preview) preview.hidden = open;
+    if (open) thread.querySelector('input').focus();
+  });
   c.querySelector('.access span').textContent = shared ? 'Both can edit' : 'Read-only · ' + nameOf(e.author) + ' edits';
   return c;
 }

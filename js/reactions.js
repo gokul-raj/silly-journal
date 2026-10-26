@@ -84,6 +84,7 @@ export function commentThread(kind, id, rows, { onCount, inputId } = {}) {
     input.disabled = false;
     if (error) return toast(friendlyError(error));
     input.value = '';
+    input.focus();
     list.append(commentRow(data));
     count += 1;
     if (onCount) onCount(count);
