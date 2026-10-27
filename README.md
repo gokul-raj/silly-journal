@@ -28,6 +28,21 @@ In **Authentication → URL Configuration**:
 ### 3. Turn on the website
 In this repo on GitHub: **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `main` / `(root)` → Save**. After a minute it's live at https://gokul-raj.github.io/silly-journal/
 
+### Email nudges (optional)
+Every morning at 8 AM Eastern, whoever has unread notifications gets a short email, e.g.
+**"New updates from Xinyi on Silly Journal!"** · *3 new notifications* · Xinyi posted · Xinyi watered a tree.
+It only says what kind of thing happened, never the words. It comes again each morning until they're read on the site.
+
+1. **Gmail app password.** On the Gmail account the emails should come from: turn on 2-Step Verification, then open https://myaccount.google.com/apppasswords, create one called "Silly Journal" and copy the 16 letters.
+2. **Secrets.** Supabase → **Edge Functions → Secrets**: add `GMAIL_USER` (that Gmail address) and `GMAIL_APP_PASSWORD` (the 16 letters, no spaces).
+3. **Function.** Supabase → **Edge Functions → Deploy a new function → Via editor**. Name it `email-digest`, paste all of [`supabase/functions/email-digest/index.ts`](supabase/functions/email-digest/index.ts), deploy. In its settings, turn **off** "Verify JWT" / "Enforce JWT verification" (the scheduler calls it without a login; it can only send what's due, at most once a day each).
+4. **Schedule.** After `notifications.sql` and `comment-threads.sql`, run [`supabase/email-digests.sql`](supabase/email-digests.sql) in the SQL Editor.
+5. **Check Gmail works** (sends nothing): run this in the SQL Editor, wait a few seconds, then run the second line. It should say "Gmail login works".
+   ```sql
+   select net.http_post(url := 'https://hjzmdhcdeqyzsbarszox.supabase.co/functions/v1/email-digest', body := '{"check": true}'::jsonb);
+   select status_code, content from net._http_response order by id desc limit 1;
+   ```
+
 ## How it's protected
 - Every page checks you're signed in and sends you to the sign-in page if not.
 - Row-level security in the database only lets your two accounts read or write anything; everyone else gets nothing, even with the public key in `js/config.js`.
