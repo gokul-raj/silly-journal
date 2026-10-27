@@ -44,7 +44,5 @@ export function mountLayout(ctx, active) {
   if (active === 'home.html') header.querySelector('.brand').classList.add('brand-moved');
   shell.prepend(header);
   mountNotifications(ctx, header.querySelector('.me'));
-  const foot = el('footer', { class: 'footer' }, document.body.dataset.footer || 'written by the two of us');
-  shell.append(foot);
   document.body.classList.remove('wait');
 }

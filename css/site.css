@@ -58,7 +58,6 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .cols { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
 .col-main { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
 .col-side { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
-.footer { max-width: 1180px; margin: 0 auto; padding: 24px 24px 48px; font-family: var(--hand); font-size: 24px; color: var(--muted); }
 
 /* Cards */
 .card { background: var(--card); box-shadow: 0 1px 2px rgba(18,20,23,.08); padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; }
