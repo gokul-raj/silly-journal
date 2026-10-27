@@ -31,6 +31,8 @@
   .day .n { position: relative; z-index: 2; font-family: var(--nav); font-weight: 600; font-size: 14px; line-height: 1; background: rgba(255,255,255,.85); padding: 2px 4px; border-radius: 3px; margin: -2px 0 0 -2px; }
   .day.today .n { background: var(--ink); color: #fff; }
   .day[aria-pressed="true"] { outline: 3px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  .day .thumb-title { position: absolute; inset: 0; padding: 22px 6px 22px; background: #FFE4EF; font-family: var(--hand); font-weight: 700; font-size: 17px; line-height: 1.05; color: #9C2F57; overflow: hidden; overflow-wrap: anywhere; display: flex; align-items: center; justify-content: center; text-align: center; }
+  .day.starred::after { content: '★'; position: absolute; top: 3px; right: 5px; z-index: 2; color: #F2B705; font-size: 16px; line-height: 1; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px rgba(0,0,0,.35); }
   .day .thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
   .day .marks { position: absolute; left: 4px; right: 4px; bottom: 4px; z-index: 2; display: flex; flex-wrap: wrap; gap: 3px; }
   .mark { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #fff; }
@@ -52,6 +54,17 @@
   .ev .icon svg { width: 24px; height: 24px; }
   .ev h3 { margin: 0; font-size: 17px; font-weight: 600; }
   .ev p { margin: 4px 0 0; font-family: var(--serif); font-size: 16px; color: var(--soft); }
+  .ev-row { display: flex; align-items: flex-start; gap: 8px; border-top: 1px solid var(--line); }
+  .ev-row:first-child { border-top: 0; }
+  .ev-row .ev { flex: 1; min-width: 0; border-top: 0; }
+  .ev-row.on .ev .pic { box-shadow: 0 0 0 3px #F2B705, 0 1px 4px rgba(18,20,23,.15); }
+  .star-col { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 12px; }
+  .star-btn { min-width: 44px; min-height: 44px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; font-family: var(--nav); font-size: 11px; font-weight: 600; color: var(--muted); }
+  .star-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+  .star-btn:hover { color: var(--ink); border-color: #C9C2B3; }
+  .star-btn[aria-pressed="true"] { background: #FFF6D6; border-color: #F2B705; color: #8A6300; }
+  .star-btn[aria-pressed="true"] svg { fill: #F2B705; stroke: #C99700; }
+  .star-by { font-size: 11px; color: var(--muted); text-align: center; max-width: 72px; line-height: 1.2; }
   a.ev:hover h3 { text-decoration: underline; text-decoration-color: var(--accent); }
 
   @media (max-width: 560px) {

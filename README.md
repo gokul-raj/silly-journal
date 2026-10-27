@@ -16,6 +16,7 @@ It's a plain static site (no build step) hosted on GitHub Pages, with Supabase f
 If you set up the database before these were added, run each once in the SQL Editor (both are safe to run again):
 - [`supabase/two-trees.sql`](supabase/two-trees.sql): a tree in each place. Keeps the tree you already planted.
 - [`supabase/notifications.sql`](supabase/notifications.sql): remembers which notifications each of you has read.
+- [`supabase/highlights.sql`](supabase/highlights.sql): which page is each day's picture on the Memories calendar.
 
 ### 2. Links in emails
 In **Authentication → URL Configuration**:

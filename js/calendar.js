@@ -15,6 +15,7 @@ const ICON = {
   gym: '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 22c-4 0-7-2.8-7-6.6 0-3.2 2.2-5.2 3.6-7.2.4 1.6 1.3 2.6 2.2 3C10.4 7.6 12 4.4 14.8 2c-.3 3.2 1 5.2 2.4 7 1.2 1.5 1.8 3.2 1.8 5 0 4.4-3 8-7 8z"/></svg>',
   us: '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0112 7.3a4.2 4.2 0 017.5 2.5C19.5 15.4 12 20 12 20z"/></svg>'
 };
+const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
 const MARK_CLASS = { entry: 'm-entry', gym: 'm-gym', us: 'm-us' };
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -26,14 +27,21 @@ const todayKey = keyOf(new Date());
 
 // ───────── Gather memories ─────────
 const byDay = new Map(); // key -> [event]
+const highlights = new Map(); // key -> { entry_id, set_by }
+let highlightsReady = false;  // false if the highlights table isn't set up yet
 const add = (k, ev) => { if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(ev); };
 
 async function loadAll() {
-  const [en, gp, gg] = await Promise.all([
+  const [en, gp, gg, hl] = await Promise.all([
     sb.from('entries').select('id, author, title, body_html, stickers, created_at').order('created_at'),
     sb.from('gym_posts').select('author, created_at').eq('kind', 'gym'),
-    sb.from('gym_goals').select('goal, effective_from, created_at')
+    sb.from('gym_goals').select('goal, effective_from, created_at'),
+    sb.from('day_highlights').select('day, entry_id, set_by')
   ]);
+  if (!hl.error) {
+    highlightsReady = true;
+    for (const h of hl.data || []) highlights.set(h.day, h);
+  }
   if (en.error) throw en.error;
   for (const e of en.data || []) {
     add(keyOf(new Date(e.created_at)), { type: 'entry', at: e.created_at, id: e.id, title: e.title || 'Untitled page', author: e.author, text: excerpt(e.body_html, 120), photo: firstPhotoPath(e.body_html, e.stickers) });
@@ -83,12 +91,7 @@ function buildSheet(month) {
     const cell = el('button', { type: 'button', class: 'day' + (inMonth ? '' : ' out') + (k === todayKey ? ' today' : ''), 'data-k': k, 'aria-pressed': String(k === selected), 'aria-label': label },
       el('span', { class: 'n' }, String(d.getDate())),
       types.length ? el('span', { class: 'marks', 'aria-hidden': 'true' }, types.map((t) => el('span', { class: 'mark ' + MARK_CLASS[t], html: ICON[t] }))) : null);
-    const pic = inMonth && evs.find((e) => e.photo);
-    if (pic) {
-      const img = el('img', { class: 'thumb', alt: '', loading: 'lazy' });
-      cell.prepend(img);
-      signedUrl('journal', pic.photo).then((u) => { img.src = u; });
-    }
+    if (inMonth) paintThumb(cell, k);
     cell.addEventListener('click', () => { if (inMonth) select(k); else jumpTo(k); });
     grid.append(cell);
   }
@@ -98,6 +101,28 @@ function buildSheet(month) {
   const s = el('div', { class: 'sheet' }, head, dow, grid,
     el('p', { class: 'summary' }, bits.length ? bits.join(' · ') + ' this month' : 'Nothing here yet this month.'));
   return s;
+}
+
+// The day's picture: the highlighted page if one was chosen, otherwise the first page with a photo.
+function featured(k) {
+  const evs = (byDay.get(k) || []).filter((e) => e.type === 'entry');
+  const h = highlights.get(k);
+  const chosen = h && evs.find((e) => e.id === h.entry_id);
+  return chosen || evs.find((e) => e.photo) || null;
+}
+function paintThumb(cell, k) {
+  cell.querySelectorAll('.thumb, .thumb-title').forEach((n) => n.remove());
+  const f = featured(k);
+  if (!f) return;
+  const starred = highlights.has(k) && highlights.get(k).entry_id === f.id;
+  cell.classList.toggle('starred', starred);
+  if (f.photo) {
+    const img = el('img', { class: 'thumb', alt: '', loading: 'lazy' });
+    cell.prepend(img);
+    signedUrl('journal', f.photo).then((u) => { img.src = u; });
+  } else {
+    cell.prepend(el('span', { class: 'thumb-title', 'aria-hidden': 'true' }, f.title));
+  }
 }
 
 function mount() {
@@ -171,22 +196,57 @@ function select(k) {
       k === todayKey ? el('a', { href: 'write.html' }, 'Write today’s page') : null));
     return;
   }
-  $('events').replaceChildren(...evs.map((e) => {
+  const entries = evs.filter((e) => e.type === 'entry');
+  const h = highlights.get(k);
+  const chosenId = h && entries.some((e) => e.id === h.entry_id) ? h.entry_id : null;
+  const ordered = chosenId ? [...evs].sort((a, b) => (a.id === chosenId ? -1 : b.id === chosenId ? 1 : 0)) : evs;
+  $('events').replaceChildren(...ordered.map((e) => {
     if (e.type === 'entry') {
       const pic = e.photo ? el('img', { class: 'pic', alt: '' }) : null;
       if (pic) signedUrl('journal', e.photo).then((u) => { pic.src = u; });
       const time = new Date(e.at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-      return el('a', { class: 'ev', href: 'entry.html?id=' + e.id },
+      const link = el('a', { class: 'ev', href: 'entry.html?id=' + e.id },
         pic || el('span', { class: 'icon m-entry', html: ICON.entry }),
         el('div', { style: 'min-width:0' },
           el('h3', {}, e.title),
           el('div', { class: 'row', style: 'gap:8px;margin-top:4px' }, el('span', { class: chipClass(e.author) }, nameOf(e.author)), el('span', { class: 'small muted' }, time)),
           e.text ? el('p', {}, e.text) : null));
+      const on = e.id === chosenId;
+      const star = el('button', { type: 'button', class: 'star-btn', 'aria-pressed': String(on),
+        title: on ? 'This is the day’s picture. Tap to unpick it.' : 'Make this the day’s picture on the calendar',
+        html: STAR + `<span>${on ? 'Highlighted' : 'Highlight'}</span>` });
+      star.addEventListener('click', () => setHighlight(k, on ? null : e.id));
+      const who = on && h ? el('span', { class: 'star-by' }, `Picked by ${h.set_by === ctx.me.id ? 'you' : nameOf(h.set_by)}`) : null;
+      return el('div', { class: 'ev-row' + (on ? ' on' : '') }, link,
+        entries.length && highlightsReady ? el('div', { class: 'star-col' }, star, who) : null);
     }
     return el('div', { class: 'ev' },
       el('span', { class: 'icon ' + MARK_CLASS[e.type], html: ICON[e.type] }),
       el('div', { style: 'min-width:0' }, el('h3', {}, e.title), el('p', {}, e.text)));
   }));
+}
+
+// Pick (or unpick) the page that stands for a day. Either of us can change it.
+async function setHighlight(k, entryId) {
+  const prev = highlights.get(k);
+  if (entryId) highlights.set(k, { day: k, entry_id: entryId, set_by: ctx.me.id });
+  else highlights.delete(k);
+  refreshDay(k);
+  const { error } = entryId
+    ? await sb.from('day_highlights').upsert({ day: k, entry_id: entryId, set_by: ctx.me.id, updated_at: new Date().toISOString() }, { onConflict: 'day' })
+    : await sb.from('day_highlights').delete().eq('day', k);
+  if (error) {
+    if (prev) highlights.set(k, prev); else highlights.delete(k);
+    refreshDay(k);
+    toast(friendlyError(error));
+    return;
+  }
+  toast(entryId ? 'That’s the day’s picture now.' : 'Back to the first photo of the day.');
+}
+function refreshDay(k) {
+  const cell = sheet.querySelector(`.day[data-k="${k}"]`);
+  if (cell) paintThumb(cell, k);
+  if (selected === k) select(k);
 }
 
 // Swipe left/right on phones; arrow keys on the keyboard when not typing.
