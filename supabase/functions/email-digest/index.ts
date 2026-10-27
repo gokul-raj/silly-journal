@@ -45,6 +45,13 @@ Deno.serve(async (req) => {
     catch (e) { return new Response('Gmail login failed: ' + (e instanceof Error ? e.message : String(e)), { status: 500 }); }
   }
 
+  // Sample email: {"test": true} sends a "0 new notifications" email to GMAIL_USER only.
+  if (body && body.test) {
+    const sample = buildEmail({ partner_name: typeof body.from === 'string' ? body.from.slice(0, 40) : 'Xinyi', n: 0, lines: ['(This is a test email. Real ones only come when there is something new.)'] });
+    try { await mail.sendMail({ from: `"Silly Journal" <${user}>`, to: user, ...sample }); return new Response('Test email sent to ' + user + '.'); }
+    catch (e) { return new Response('Test email failed: ' + (e instanceof Error ? e.message : String(e)), { status: 500 }); }
+  }
+
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey(), { auth: { persistSession: false } });
   // Any unread notification at all → email (the database allows one email per person per day).
   const { data, error } = await sb.rpc('claim_email_digests', { min_new: 1, only_new: false });
