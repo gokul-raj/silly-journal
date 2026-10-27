@@ -255,6 +255,7 @@ setKind('gym');
 await Promise.all([refreshStreak(), loadFeed()]);
 // Opened from a notification: jump to that post.
 if (location.hash.startsWith('#post-')) {
-  const target = document.getElementById(location.hash.slice(1));
+  let target = document.getElementById(location.hash.slice(1));
+  for (let i = 0; !target && !$('more').hidden && i < 20; i++) { await loadFeed(); target = document.getElementById(location.hash.slice(1)); }
   if (target) { target.scrollIntoView({ block: 'start' }); target.classList.add('flash'); }
 }
