@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Silly Journal — Memories</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=DM+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  /* Wall calendar: a binding with rings, and sheets that flip up over it. */
+  .cal { position: relative; padding-top: 18px; }
+  .binding { position: absolute; left: 0; right: 0; top: 0; height: 36px; z-index: 5; display: flex; justify-content: space-around; padding: 0 9%; pointer-events: none; }
+  .binding span { width: 14px; height: 36px; border-radius: 7px; background: linear-gradient(90deg, #8E949B, #E9ECEF 45%, #8E949B); box-shadow: 0 2px 2px rgba(0,0,0,.18); }
+  .pages { position: relative; perspective: 1800px; }
+  .sheet { background: var(--paper); box-shadow: 0 1px 2px rgba(18,20,23,.08), 0 10px 28px rgba(18,20,23,.08); padding: 34px 22px 22px; transform-origin: 50% 0; backface-visibility: hidden; }
+  .sheet.flip { position: absolute; inset: 0; z-index: 3; }
+  .sheet::before { content: ''; display: block; height: 8px; margin: -34px -22px 26px; background: repeating-linear-gradient(90deg, transparent 0 18px, rgba(18,20,23,.07) 18px 20px); }
+  .cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .cal-head .month { font-family: var(--hand); font-weight: 700; font-size: clamp(44px, 7vw, 64px); line-height: 1; color: var(--accent); }
+  .cal-head .year { font-family: var(--nav); font-size: 18px; color: var(--muted); margin-left: 10px; align-self: flex-end; padding-bottom: 8px; }
+  .cal-head .nav { margin-left: auto; display: flex; gap: 4px; }
+  .cal-head .nav button { min-width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; font-size: 18px; color: var(--ink); padding: 0 12px; }
+  .cal-head .nav button.today-btn { font-family: var(--nav); font-size: 14px; font-weight: 600; }
+  .dow, .grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .dow span { font-family: var(--nav); font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; padding-bottom: 6px; }
+  .day { position: relative; aspect-ratio: 1 / 1.05; min-height: 48px; border: 1px solid #E8E4DA; background: #fff; border-radius: 4px; cursor: pointer; padding: 6px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; font: inherit; color: var(--ink); overflow: hidden; }
+  .day:hover { border-color: #C9C2B3; }
+  .day.out { background: transparent; border-style: dashed; color: #A9AEB4; }
+  .day .n { position: relative; z-index: 2; font-family: var(--nav); font-weight: 600; font-size: 14px; line-height: 1; background: rgba(255,255,255,.85); padding: 2px 4px; border-radius: 3px; margin: -2px 0 0 -2px; }
+  .day.today .n { background: var(--ink); color: #fff; }
+  .day[aria-pressed="true"] { outline: 3px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  .day .thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
+  .day .marks { position: absolute; left: 4px; right: 4px; bottom: 4px; z-index: 2; display: flex; flex-wrap: wrap; gap: 3px; }
+  .mark { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #fff; }
+  .mark svg { width: 11px; height: 11px; }
+  .m-entry { background: var(--accent); }
+  .m-gym { background: #E0702E; }
+  .m-us { background: #C0392B; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px; padding: 10px 14px; background: rgba(255,255,255,.9); font-size: 14px; color: var(--soft); width: fit-content; max-width: 100%; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .summary { font-family: var(--nav); font-size: 14px; color: var(--muted); margin: 10px 0 0; }
+
+  /* Day panel */
+  .day-panel { position: sticky; top: 16px; }
+  .day-title { font-family: var(--hand); font-weight: 700; font-size: 40px; line-height: 1.05; color: var(--accent); margin: 0; }
+  .ev { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); text-decoration: none; color: inherit; }
+  .ev:first-of-type { border-top: 0; }
+  .ev .pic { flex: 0 0 72px; height: 72px; object-fit: cover; background: #FFE4EF; box-shadow: 0 1px 4px rgba(18,20,23,.15); border: 4px solid #fff; transform: rotate(-2deg); }
+  .ev .icon { flex: 0 0 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .ev .icon svg { width: 24px; height: 24px; }
+  .ev h3 { margin: 0; font-size: 17px; font-weight: 600; }
+  .ev p { margin: 4px 0 0; font-family: var(--serif); font-size: 16px; color: var(--soft); }
+  a.ev:hover h3 { text-decoration: underline; text-decoration-color: var(--accent); }
+
+  @media (max-width: 560px) {
+    .sheet { padding: 28px 10px 14px; }
+    .sheet::before { margin: -28px -10px 20px; }
+    .dow, .grid { gap: 3px; }
+    .day { padding: 4px; min-height: 0; }
+    .day .n { font-size: 12px; }
+    .mark { width: 12px; height: 12px; }
+    .mark svg { display: none; }
+    .cal-head { flex-wrap: wrap; }
+    .day-panel { position: static; }
+  }
+</style>
+</head>
+<body class="wait" data-footer="remembered by the two of us">
+<div class="shell">
+  <main class="page">
+    <div class="row spread" style="align-items:flex-end;margin-bottom:24px">
+      <h1 class="page-title" style="margin:0">Memories</h1>
+      <p class="muted" style="margin:0 0 12px;max-width:380px;font-size:18px">Every journal page, gym streak milestone and anniversary, on one little calendar.</p>
+    </div>
+    <div class="cols">
+      <section class="col-main" aria-label="Memory calendar">
+        <div class="cal">
+          <div class="binding" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="pages" id="pages"></div>
+        </div>
+        <div class="legend" aria-hidden="true" id="legend"></div>
+      </section>
+      <aside class="col-side">
+        <section class="card day-panel" id="panel" aria-live="polite">
+          <p class="day-title" id="day-title"></p>
+          <span class="small muted" id="day-sub"></span>
+          <div id="events"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+<script type="module" src="js/calendar.js"></script>
+</body>
+</html>

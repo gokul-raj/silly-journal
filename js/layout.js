@@ -6,6 +6,7 @@ const NAV = [
   ['home.html', 'Journal'],
   ['fitness.html', 'Silly Fitness'],
   ['tree.html', 'Our Trees'],
+  ['calendar.html', 'Memories'],
   ['about.html', 'About us']
 ];
 

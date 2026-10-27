@@ -31,7 +31,7 @@ In this repo on GitHub: **Settings → Pages → Build and deployment → Source
 
 ## Files
 - `index.html` sign in · `home.html` journal · `write.html` notebook editor · `entry.html` a page with likes & comments
-- `fitness.html` Silly Fitness · `tree.html` Our Trees · `about.html` · `settings.html` · `reset.html`
+- `fitness.html` Silly Fitness · `tree.html` Our Trees · `calendar.html` Memories (journal pages, gym streak milestones, anniversaries) · `about.html` · `settings.html` · `reset.html`
 - `js/config.js` Supabase URL + public key, tree locations
 - `supabase/schema.sql` tables, security rules, storage buckets
 - Weather comes from [Open-Meteo](https://open-meteo.com/) (free, no key).

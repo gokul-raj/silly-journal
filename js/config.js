@@ -12,3 +12,6 @@ export const LOCATIONS = {
 
 // Week boundaries for the gym streak use this time zone (Monday–Sunday).
 export const STREAK_TZ = 'America/Los_Angeles';
+
+// The day we got together (shown on the home page and the memory calendar).
+export const TOGETHER = '2025-11-02';
