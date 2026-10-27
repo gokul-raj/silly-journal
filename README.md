@@ -39,7 +39,8 @@ It only says what kind of thing happened, never the words. It comes again each m
 4. **Schedule.** After `notifications.sql` and `comment-threads.sql`, run [`supabase/email-digests.sql`](supabase/email-digests.sql) in the SQL Editor.
 5. **Check Gmail works** (sends nothing): run this in the SQL Editor, wait a few seconds, then run the second line. It should say "Gmail login works".
    ```sql
-   select net.http_post(url := 'https://hjzmdhcdeqyzsbarszox.supabase.co/functions/v1/email-digest', body := '{"check": true}'::jsonb);
+   select net.http_post(url := 'https://hjzmdhcdeqyzsbarszox.supabase.co/functions/v1/email-digest', body := '{"check": true}'::jsonb,
+     headers := '{"Content-Type": "application/json", "apikey": "sb_publishable_Dsh0X7CkWEpQjDJ_MPtSug_r3lDCZZL", "Authorization": "Bearer sb_publishable_Dsh0X7CkWEpQjDJ_MPtSug_r3lDCZZL"}'::jsonb);
    select status_code, content from net._http_response order by id desc limit 1;
    ```
 

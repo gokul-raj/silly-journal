@@ -108,7 +108,8 @@ select cron.schedule(
   '0 12,13 * * *',
   $$ select net.http_post(
        url := 'https://hjzmdhcdeqyzsbarszox.supabase.co/functions/v1/email-digest',
-       headers := '{"Content-Type": "application/json"}'::jsonb,
+       -- The public (publishable) key: the same one the website uses. Supabase wants a key on every call.
+       headers := '{"Content-Type": "application/json", "apikey": "sb_publishable_Dsh0X7CkWEpQjDJ_MPtSug_r3lDCZZL", "Authorization": "Bearer sb_publishable_Dsh0X7CkWEpQjDJ_MPtSug_r3lDCZZL"}'::jsonb,
        body := '{}'::jsonb
      )
      where extract(hour from now() at time zone 'America/New_York') = 8 $$
