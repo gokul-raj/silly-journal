@@ -88,10 +88,36 @@ export function placeSticker(node, it) {
   node.style.zIndex = String(10 + (it.z || 0));
 }
 
-export function excerpt(html, n = 180) {
+// A one-line preview of a page. Each paragraph, line break, heading or list item reads as
+// its own sentence: "…Switch 2. Thank you…" (no extra period if it already ends in . ! ? …).
+const BLOCK = new Set(['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'UL', 'OL', 'BLOCKQUOTE', 'HR']);
+export function pageText(html) {
   const box = document.createElement('div');
   box.innerHTML = cleanHtml(html);
-  const text = (box.textContent || '').replace(/\s+/g, ' ').trim();
+  const parts = [];
+  let cur = '';
+  const flush = () => { const t = cur.replace(/\s+/g, ' ').trim(); if (t) parts.push(t); cur = ''; };
+  const walk = (node) => {
+    for (const c of node.childNodes) {
+      if (c.nodeType === 3) cur += c.data;
+      else if (c.nodeType === 1) {
+        if (c.tagName === 'BR') { flush(); continue; }
+        const block = BLOCK.has(c.tagName);
+        if (block) flush();
+        walk(c);
+        if (block) flush();
+      }
+    }
+  };
+  walk(box);
+  flush();
+  // Ends a sentence already? (allowing closing quotes/brackets and emoji-free endings)
+  const ended = (t) => /[.!?…](["'”’)\]]*)$/.test(t);
+  return parts.map((t, i) => (i < parts.length - 1 && !ended(t) ? t + '.' : t)).join(' ');
+}
+
+export function excerpt(html, n = 180) {
+  const text = pageText(html);
   return text.length > n ? text.slice(0, n - 1).trimEnd() + '…' : text;
 }
 
