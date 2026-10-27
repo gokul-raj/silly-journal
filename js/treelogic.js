@@ -14,7 +14,9 @@ export const TREES = {
 };
 
 export const STAGES = ['Seed', 'Sprout', 'Sapling', 'Young', 'Grown', 'Fruiting'];
-const STAGE_DAYS = [0, 3, 7, 14, 30, 50];
+// Watered days needed for each stage: sprout ~1 month, then a new stage every ~3 months,
+// fully grown after 330 watered days (about a year, with a few missed days allowed).
+const STAGE_DAYS = [0, 30, 90, 180, 270, 330];
 
 // Leafy sprites per stage (stage 4 and 5 use your tree at 3× and 4×).
 export const LEAFY = [
