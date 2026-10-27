@@ -1,5 +1,5 @@
 import { sb, requireUser, nameOf, chipClass, signedUrl, el, fmtDate, toast, friendlyError } from './sb.js';
-import { mountLayout } from './layout.js';
+import { mountLayout, coupleNames, LOGO } from './layout.js';
 import { excerpt, firstPhotoPath } from './notebook.js';
 import { loadReactions, likeButton, commentThread, commentCountText } from './reactions.js';
 import { computeStreak } from './streak.js';
@@ -8,6 +8,12 @@ import { TREES, STAGES, stageFor, wateringSummary, seasonFor, look, getWeather, 
 
 const ctx = await requireUser();
 mountLayout(ctx, 'home.html');
+$byline();
+function $byline() {
+  const b = document.getElementById('byline');
+  b.innerHTML = LOGO;
+  b.append(document.createTextNode('by ' + coupleNames(ctx)));
+}
 const members = ctx.profiles.map((p) => p.id);
 const $ = (id) => document.getElementById(id);
 

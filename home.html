@@ -11,6 +11,8 @@
 <style>
   .hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; margin: 16px 0 36px; }
   .hero .big { margin: 0; font-family: var(--hand); font-weight: 500; font-size: clamp(72px, 12vw, 128px); line-height: .95; color: var(--accent); }
+  .hero .byline { margin: 10px 0 0 6px; display: flex; align-items: center; gap: 10px; font-family: var(--nav); font-weight: 800; font-size: clamp(20px, 2.4vw, 24px); color: var(--ink); }
+  .hero .byline svg { width: 30px; height: 30px; flex: 0 0 auto; }
   .hero .facts { display: flex; flex-direction: column; gap: 4px; font-size: clamp(18px, 2.4vw, 25px); color: var(--muted); }
   .entry-card { background: #fff; box-shadow: 0 1px 2px rgba(18,20,23,.06); display: flex; flex-direction: column; overflow: hidden; }
   .entry-card .photo { height: 280px; object-fit: cover; width: 100%; display: block; background: #FFDEF9; }
@@ -31,7 +33,10 @@
 <div class="shell">
   <main class="page">
     <section class="hero">
-      <p class="big">Silly Journal</p>
+      <div>
+        <h1 class="big">Silly Journal</h1>
+        <p class="byline" id="byline"></p>
+      </div>
       <div class="facts"><span><i>Together</i> - 11/02/2025</span><span id="counts">&nbsp;</span></div>
     </section>
     <div class="cols">

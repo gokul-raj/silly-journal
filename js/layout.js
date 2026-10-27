@@ -11,7 +11,7 @@ const NAV = [
   ['about.html', 'About us']
 ];
 
-const LOGO = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="var(--accent)" stroke-width="2" aria-hidden="true"><circle cx="11" cy="14" r="7"/><circle cx="17" cy="14" r="7"/></svg>';
+export const LOGO = '<svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="var(--accent)" stroke-width="2" aria-hidden="true"><circle cx="11" cy="14" r="7"/><circle cx="17" cy="14" r="7"/></svg>';
 
 export function catBackground(shell, { fade = true } = {}) {
   const bg = el('div', { class: 'cat-bg' + (fade ? '' : ' no-fade'), 'aria-hidden': 'true' });
@@ -21,10 +21,16 @@ export function catBackground(shell, { fade = true } = {}) {
   shell.prepend(bg);
 }
 
+export function coupleNames(ctx) {
+  const order = (p) => (p.username === 'sillygokul' ? 0 : 1);
+  return [...ctx.profiles].sort((a, b) => order(a) - order(b)).map((p) => nameOf(p.id)).join(' & ');
+}
+
 export function mountLayout(ctx, active) {
   const shell = document.querySelector('.shell');
   catBackground(shell);
-  const names = ctx.partner ? `${nameOf(ctx.me.id)} & ${nameOf(ctx.partner.id)}` : nameOf(ctx.me.id);
+  // Always "Gokul & Xinyi", whoever is signed in.
+  const names = coupleNames(ctx);
   const header = el('header', { class: 'site-header' },
     el('a', { class: 'brand', href: 'home.html', html: LOGO + '<span></span>' }),
     el('nav', { class: 'site-nav', 'aria-label': 'Main' },
@@ -35,6 +41,8 @@ export function mountLayout(ctx, active) {
       el('a', { href: '#', onclick: async (e) => { e.preventDefault(); await sb.auth.signOut(); location.replace('index.html'); } }, 'Sign out'))
   );
   header.querySelector('.brand span').textContent = names;
+  // The home page shows this under its big title instead.
+  if (active === 'home.html') header.querySelector('.brand').classList.add('brand-moved');
   shell.prepend(header);
   mountNotifications(ctx, header.querySelector('.me'));
   const foot = el('footer', { class: 'footer' }, document.body.dataset.footer || 'written by the two of us');
