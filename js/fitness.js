@@ -223,7 +223,7 @@ function workoutList(all) {
 async function postCard(p, likers, cmts) {
   const isGym = p.kind === 'gym';
   const count = el('span', { class: 'muted' }, commentCountText(cmts.length));
-  const card = el('article', { class: 'post' },
+  const card = el('article', { class: 'post', id: 'post-' + p.id },
     el('div', { class: 'row small muted', style: 'padding:18px 24px 0' },
       el('span', { class: chipClass(p.author) }, nameOf(p.author)),
       el('span', { title: fmtDate(p.created_at, { dateStyle: 'full' }) }, timeAgo(p.created_at)),
@@ -253,3 +253,8 @@ $('more').addEventListener('click', loadFeed);
 
 setKind('gym');
 await Promise.all([refreshStreak(), loadFeed()]);
+// Opened from a notification: jump to that post.
+if (location.hash.startsWith('#post-')) {
+  const target = document.getElementById(location.hash.slice(1));
+  if (target) { target.scrollIntoView({ block: 'start' }); target.classList.add('flash'); }
+}

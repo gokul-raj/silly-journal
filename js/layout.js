@@ -1,6 +1,7 @@
 // Header, cat sticker background and footer shared by every signed-in page.
 import { sb, el, initial, nameOf } from './sb.js';
 import { STICKER_FILES, STICKER_LAYOUT } from './stickers-bg.js';
+import { mountNotifications } from './notify.js';
 
 const NAV = [
   ['home.html', 'Journal'],
@@ -35,6 +36,7 @@ export function mountLayout(ctx, active) {
   );
   header.querySelector('.brand span').textContent = names;
   shell.prepend(header);
+  mountNotifications(ctx, header.querySelector('.me'));
   const foot = el('footer', { class: 'footer' }, document.body.dataset.footer || 'written by the two of us');
   shell.append(foot);
   document.body.classList.remove('wait');

@@ -13,7 +13,9 @@ It's a plain static site (no build step) hosted on GitHub Pages, with Supabase f
 4. In **Authentication → Sign In / Providers**, turn **off** "Allow new users to sign up".
 
 ### Updating an existing database
-If you set up the database before the two-trees change, run [`supabase/two-trees.sql`](supabase/two-trees.sql) once in the SQL Editor. It keeps the tree you already planted (in the place it was set to) and gives the other place its own empty tree.
+If you set up the database before these were added, run each once in the SQL Editor (both are safe to run again):
+- [`supabase/two-trees.sql`](supabase/two-trees.sql): a tree in each place. Keeps the tree you already planted.
+- [`supabase/notifications.sql`](supabase/notifications.sql): remembers which notifications each of you has read.
 
 ### 2. Links in emails
 In **Authentication → URL Configuration**:
