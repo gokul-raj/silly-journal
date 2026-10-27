@@ -23,6 +23,13 @@
   .nb-page.drawing #sticker-layer { pointer-events: none; }
   #sticker-layer .nb-sticker { cursor: grab; touch-action: none; }
   #sticker-layer .nb-sticker.sel { outline: 1.5px dashed #2F5BB7; outline-offset: 6px; }
+  .nb-resize { display: none; position: absolute; right: -18px; bottom: -18px; width: 28px; height: 28px; border-radius: 50%; background: #2F5BB7; border: 3px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); cursor: nwse-resize; touch-action: none; }
+  .nb-resize::after { content: ''; position: absolute; inset: -10px; }
+  .nb-sticker.sel .nb-resize { display: block; }
+  .stk-item { position: relative; }
+  .stk-item > .stk-add { width: 100%; }
+  .stk-del { position: absolute; top: 2px; right: 2px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--ink); color: #fff; font-size: 13px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: .85; }
+  .stk-del:hover { opacity: 1; background: var(--err); }
   .stk-tools { position: absolute; z-index: 999; display: flex; gap: 2px; background: var(--ink); border-radius: 8px; padding: 2px; }
   .stk-tools button { width: 40px; height: 40px; border: 0; background: transparent; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .place-input { border: 0; background: transparent; font-family: var(--hand); font-size: 26px; color: var(--accent); width: 220px; padding: 0; }
@@ -31,7 +38,7 @@
   .drop { border: 2px dashed #9AA7B4; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
   .drop.over { border-color: var(--accent); background: #FFF3F8; }
   .stk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .stk-grid button { aspect-ratio: 1; border: 0; background: var(--bg); padding: 6px; cursor: grab; display: flex; align-items: center; justify-content: center; }
+  .stk-grid .stk-add { aspect-ratio: 1; border: 0; background: var(--bg); padding: 6px; cursor: grab; display: flex; align-items: center; justify-content: center; }
   .stk-grid img { max-width: 100%; max-height: 100%; pointer-events: none; }
   .editor-cols { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
   .editor-main { flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -131,7 +138,7 @@
             <button type="button" data-tab="ours" aria-pressed="false" style="flex:1">Ours</button>
           </div>
           <div class="stk-grid" id="stk-grid"></div>
-          <p class="small muted" style="margin:0">Tap a sticker to add it, or drag it onto the page. Tap one on the page to move, turn, resize or remove it.</p>
+          <p class="small muted" style="margin:0">Tap a sticker to add it, or drag it onto the page. Tap a sticker or photo on the page to move it, drag the blue corner to resize, or use the bar to turn or remove it. The ✕ on a sticker you uploaded removes it from this list.</p>
         </div>
       </aside>
     </div>

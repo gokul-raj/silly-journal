@@ -61,12 +61,13 @@ export function dehydrate(html) {
 export async function stickerSrc(src) {
   if (src.startsWith('cat:')) return 'assets/stickers/' + src.slice(4) + '.png';
   if (src.startsWith('up:')) return signedUrl('stickers', src.slice(3));
+  if (src.startsWith('ph:')) return signedUrl('journal', src.slice(3));
   return '';
 }
 
 export async function stickerNode(item) {
   const wrap = document.createElement('div');
-  wrap.className = 'nb-sticker';
+  wrap.className = 'nb-sticker' + (isPhoto(item) ? ' nb-photo' : '');
   const img = document.createElement('img');
   img.alt = '';
   img.draggable = false;
@@ -75,6 +76,9 @@ export async function stickerNode(item) {
   placeSticker(wrap, item);
   return wrap;
 }
+
+// Photos live on the page like stickers: { src: 'ph:<path>', x, y, w, rot, z }.
+export const isPhoto = (item) => item.src.startsWith('ph:');
 
 export function placeSticker(node, it) {
   node.style.left = it.x + 'px';
@@ -91,9 +95,11 @@ export function excerpt(html, n = 180) {
   return text.length > n ? text.slice(0, n - 1).trimEnd() + '…' : text;
 }
 
-export function firstPhotoPath(html) {
+export function firstPhotoPath(html, layout) {
   const m = /data-path="([^"]+)"/.exec(html || '');
-  return m ? m[1] : null;
+  if (m) return m[1];
+  const ph = readLayout(layout).stickers.filter(isPhoto).sort((a, b) => a.y - b.y)[0];
+  return ph ? ph.src.slice(3) : null;
 }
 
 // The layout column stores { h, stickers: [...] }; older rows may be a plain list.

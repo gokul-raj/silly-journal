@@ -1,6 +1,6 @@
 import { sb, requireUser, nameOf, chipClass, uploadFile, shrinkImage, signedUrl, el, toast, friendlyError, fmtDate } from './sb.js';
 import { mountLayout } from './layout.js';
-import { PAGE_W, MIN_H, BUILTIN_STICKERS, fitPage, scaleOf, cleanHtml, hydrateImages, dehydrate, stickerNode, placeSticker, readLayout } from './notebook.js';
+import { PAGE_W, MIN_H, BUILTIN_STICKERS, fitPage, scaleOf, cleanHtml, hydrateImages, dehydrate, stickerNode, placeSticker, readLayout, isPhoto } from './notebook.js';
 
 const ctx = await requireUser();
 mountLayout(ctx, '');
@@ -115,9 +115,9 @@ $('photo').addEventListener('change', async (e) => {
   try {
     const small = await shrinkImage(file);
     const path = await uploadFile('journal', ctx.me.id + '/photos', small);
-    const url = await signedUrl('journal', path);
-    cmd('insertHTML', `<img data-path="${path}" src="${url}" alt="">`);
-    $('status').textContent = 'Photo added';
+    const c = visibleCenter();
+    addSticker('ph:' + path, c.x, c.y, { w: 320, rot: -1 });
+    $('status').textContent = 'Photo added. Drag it where you want it.';
   } catch (ex) {
     $('status').textContent = '';
     toast(friendlyError(ex));
@@ -265,9 +265,10 @@ $('longer').addEventListener('click', () => { pageH += 400; sizeCanvas(pageH, tr
 let selected = null;
 const tools = el('div', { class: 'stk-tools', hidden: true });
 const TOOL_BTNS = [['↺', 'Turn left', (s) => { s.rot = (s.rot || 0) - 15; }], ['↻', 'Turn right', (s) => { s.rot = (s.rot || 0) + 15; }],
-  ['−', 'Smaller', (s) => { s.w = Math.max(40, s.w - 20); }], ['+', 'Bigger', (s) => { s.w = Math.min(500, s.w + 20); }],
+  ['−', 'Smaller', (s) => { s.w = Math.max(40, s.w - 20); }], ['+', 'Bigger', (s) => { s.w = Math.min(maxW(s), s.w + 20); }],
   ['⤒', 'Bring to front', (s) => { s.z = Math.max(0, ...stickers.map((o) => o.z || 0)) + 1; }],
-  ['✕', 'Remove sticker', (s) => { stickers = stickers.filter((o) => o !== s); }]];
+  ['✕', 'Remove from page', (s) => { stickers = stickers.filter((o) => o !== s); }]];
+const maxW = (s) => (isPhoto(s) ? PAGE_W - 40 : 500);
 for (const [label, aria, fn] of TOOL_BTNS) {
   const b = el('button', { type: 'button', 'aria-label': aria, title: aria }, label);
   b.addEventListener('click', () => { if (!selected) return; fn(selected); markDirty(); renderStickers(); });
@@ -284,8 +285,11 @@ async function renderStickers() {
     n.classList.toggle('sel', s === selected);
     n.tabIndex = 0;
     n.setAttribute('role', 'button');
-    n.setAttribute('aria-label', 'Sticker. Drag to move.');
+    n.setAttribute('aria-label', (isPhoto(s) ? 'Photo' : 'Sticker') + '. Drag to move.');
     n.addEventListener('pointerdown', (e) => startMove(e, s, n));
+    const handle = el('span', { class: 'nb-resize', 'aria-hidden': 'true', title: 'Drag to resize' });
+    handle.addEventListener('pointerdown', (e) => startResize(e, s, n, handle));
+    n.append(handle);
     layer.append(n);
   }
   placeTools();
@@ -319,6 +323,23 @@ function startMove(e, s, n) {
   n.addEventListener('pointermove', move);
   n.addEventListener('pointerup', up);
 }
+// Drag the corner handle to resize; the item keeps its shape.
+function startResize(e, s, n, handle) {
+  e.preventDefault();
+  e.stopPropagation();
+  const sc = scaleOf(page);
+  const start = { x: e.clientX, y: e.clientY, w: s.w };
+  handle.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    const d = ((ev.clientX - start.x) + (ev.clientY - start.y)) / 2 / sc;
+    s.w = Math.round(Math.min(maxW(s), Math.max(40, start.w + d)));
+    placeSticker(n, s);
+  };
+  const up = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up); if (s.w !== start.w) markDirty(); placeTools(); };
+  handle.addEventListener('pointermove', move);
+  handle.addEventListener('pointerup', up);
+  handle.addEventListener('pointercancel', up);
+}
 page.addEventListener('pointerdown', (e) => { if (!e.target.closest('.nb-sticker') && !e.target.closest('.stk-tools')) selectSticker(null); });
 document.addEventListener('keydown', (e) => {
   if (!selected || !['Delete', 'Backspace'].includes(e.key)) return;
@@ -327,8 +348,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-function addSticker(src, x, y) {
-  const s = { id: crypto.randomUUID(), src, w: 140, rot: Math.round(Math.random() * 16 - 8), z: stickers.length };
+function addSticker(src, x, y, opts = {}) {
+  const s = { id: crypto.randomUUID(), src, w: opts.w || 140, rot: opts.rot ?? Math.round(Math.random() * 16 - 8), z: Math.max(0, ...stickers.map((o) => o.z || 0)) + 1 };
   s.x = Math.round(x - s.w / 2);
   s.y = Math.round(y - s.w / 2);
   stickers.push(s);
@@ -347,7 +368,7 @@ function visibleCenter() {
 let tab = 'cats';
 let uploads = [];
 async function loadUploads() {
-  const { data, error } = await sb.from('sticker_uploads').select('id, path').order('created_at', { ascending: false });
+  const { data, error } = await sb.from('sticker_uploads').select('id, path, owner').order('created_at', { ascending: false });
   if (!error) uploads = data;
 }
 async function renderGrid() {
@@ -355,14 +376,29 @@ async function renderGrid() {
   grid.innerHTML = '';
   const items = tab === 'cats'
     ? BUILTIN_STICKERS.map((n) => ({ src: 'cat:' + n, url: 'assets/stickers/' + n + '.png' }))
-    : await Promise.all(uploads.map(async (u) => ({ src: 'up:' + u.path, url: await signedUrl('stickers', u.path) })));
+    : await Promise.all(uploads.map(async (u) => ({ src: 'up:' + u.path, url: await signedUrl('stickers', u.path), upload: u })));
   if (!items.length) grid.append(el('p', { class: 'small muted', style: 'grid-column:1/-1;margin:0' }, 'Stickers either of you uploads show up here for both of you.'));
   for (const it of items) {
-    const b = el('button', { type: 'button', draggable: 'true', 'aria-label': 'Add sticker' }, el('img', { src: it.url, alt: '' }));
+    const b = el('button', { type: 'button', class: 'stk-add', draggable: 'true', 'aria-label': 'Add sticker' }, el('img', { src: it.url, alt: '' }));
     b.addEventListener('click', () => { const c = visibleCenter(); addSticker(it.src, c.x, c.y); });
     b.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/x-sticker', it.src));
-    grid.append(b);
+    const item = el('div', { class: 'stk-item' }, b);
+    if (it.upload && it.upload.owner === ctx.me.id) {
+      const del = el('button', { type: 'button', class: 'stk-del', 'aria-label': 'Delete this sticker from the list', title: 'Delete from the list' }, '✕');
+      del.addEventListener('click', () => deleteUpload(it.upload));
+      item.append(del);
+    }
+    grid.append(item);
   }
+}
+// Removes a sticker you uploaded from the list. Pages that already use it keep showing it.
+async function deleteUpload(u) {
+  if (!confirm('Delete this sticker from your sticker list? Pages that already have it will keep it.')) return;
+  const { error } = await sb.from('sticker_uploads').delete().eq('id', u.id);
+  if (error) return toast(friendlyError(error));
+  uploads = uploads.filter((x) => x.id !== u.id);
+  renderGrid();
+  toast('Sticker deleted from the list');
 }
 $('stk-tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-tab]');
@@ -408,6 +444,26 @@ drop.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].include
 drop.addEventListener('dragleave', () => drop.classList.remove('over'));
 drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); uploadStickers(e.dataTransfer.files); });
 
+// Older pages have photos inside the text. Lift them onto the page so they can be
+// moved and resized too, leaving the same space in the text so nothing shifts.
+async function liftInlinePhotos() {
+  const imgs = [...body.querySelectorAll('img[data-path]')];
+  if (!imgs.length) return;
+  await Promise.all(imgs.map((img) => (img.complete ? null : img.decode().catch(() => {}))));
+  const pr = page.getBoundingClientRect();
+  const sc = scaleOf(page);
+  for (const img of imgs) {
+    const r = img.getBoundingClientRect();
+    const w = Math.round(r.width / sc), h = Math.round(r.height / sc);
+    const z = Math.max(0, ...stickers.map((o) => o.z || 0)) + 1;
+    stickers.push({ id: crypto.randomUUID(), src: 'ph:' + img.dataset.path, x: Math.round((r.left - pr.left) / sc), y: Math.round((r.top - pr.top) / sc), w: Math.max(80, w), rot: -1, z });
+    const space = document.createElement('div');
+    space.className = 'photo-space';
+    space.style.height = Math.ceil((h + 32) / 32) * 32 + 'px';
+    img.replaceWith(space);
+  }
+}
+await liftInlinePhotos();
 await loadUploads();
 await renderGrid();
 await renderStickers();

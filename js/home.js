@@ -20,7 +20,7 @@ const BUBBLE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stro
 
 async function loadFeed() {
   const { data: rows, error } = await sb.from('entries')
-    .select('id, author, title, place, body_html, access, created_at')
+    .select('id, author, title, place, body_html, stickers, access, created_at')
     .order('created_at', { ascending: false }).range(offset, offset + PAGE - 1);
   if (error) { toast(friendlyError(error)); return; }
   offset += rows.length;
@@ -34,7 +34,7 @@ async function loadFeed() {
 }
 
 async function card(e, likers, cmts) {
-  const photo = firstPhotoPath(e.body_html);
+  const photo = firstPhotoPath(e.body_html, e.stickers);
   const href = 'entry.html?id=' + e.id;
   const shared = e.access === 'both';
   const last = cmts[cmts.length - 1];

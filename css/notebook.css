@@ -28,3 +28,5 @@
 .nb-drawing { position: absolute; left: 0; top: 0; width: 800px; pointer-events: none; }
 .nb-sticker { position: absolute; transform-origin: 50% 50%; user-select: none; -webkit-user-drag: none; }
 .nb-sticker img { display: block; width: 100%; height: auto; pointer-events: none; }
+.nb-photo img { background: #fff; padding: 8px 8px 26px; box-shadow: 0 2px 8px rgba(18,20,23,.18); }
+.nb-body .photo-space { display: block; }
