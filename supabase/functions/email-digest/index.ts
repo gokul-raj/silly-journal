@@ -23,16 +23,24 @@ export function buildEmail(d: { partner_name: string; n: number; lines: string[]
   const headline = `${d.n} new notification${d.n === 1 ? '' : 's'}`;
   const text = [headline, '', ...d.lines.map((l) => '• ' + l), '', 'Open Silly Journal: ' + SITE].join('\n');
   const img = (name: string) => new URL('assets/email/' + name, SITE).href;
-  const items = d.lines.map((l) => `<tr><td width="22" valign="top" style="padding:7px 0 0 0;color:#ff4f8d;font-size:14px;line-height:20px">&#9829;</td><td style="padding:6px 0;font-size:16px;line-height:22px;color:#121417;border-bottom:1px solid #F0EEE8">${esc(l)}</td></tr>`).join('');
-  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#EDEDEB">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EDEDEB"><tr><td align="center" style="padding:24px 12px">
-  <table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;background:#FFFDF8;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(18,20,23,.12)">
+  const items = d.lines.map((l) => `<tr><td width="22" valign="top" style="padding:7px 0 0 0;color:#ff4f8d;font-size:14px;line-height:20px">&#9829;</td><td class="sj-ink" style="padding:6px 0;font-size:16px;line-height:22px;color:#121417;border-bottom:1px solid #F0EEE8">${esc(l)}</td></tr>`).join('');
+  // Stay light in dark mode: color-scheme for Apple Mail / Outlook, and gradient "images" for
+  // the backgrounds, which Gmail's dark mode leaves alone.
+  const bg = (c: string) => `background-color:${c};background-image:linear-gradient(${c},${c})`;
+  const html = `<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only">
+<style>:root{color-scheme:light only;supported-color-schemes:light only}
+@media (prefers-color-scheme: dark){.sj-page{background:#EDEDEB!important}.sj-card{background:#FFFDF8!important}.sj-ink{color:#121417!important}.sj-soft{color:#4B5563!important}}</style>
+</head><body class="sj-page" style="margin:0;padding:0;${bg('#EDEDEB')}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="sj-page" style="${bg('#EDEDEB')}"><tr><td align="center" style="padding:24px 12px">
+  <table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" class="sj-card" style="width:100%;max-width:520px;${bg('#FFFDF8')};border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(18,20,23,.12)">
     <tr><td><a href="${SITE}"><img src="${img('header.png')}" width="520" alt="Silly Journal" style="display:block;width:100%;max-width:520px;height:auto;border:0"></a></td></tr>
     <tr><td style="padding:26px 32px 6px 32px;font-family:Helvetica,Arial,sans-serif">
-      <p style="margin:0;font-size:28px;line-height:34px;font-weight:700;color:#121417">${esc(headline)}</p>
-      <p style="margin:4px 0 18px 0;font-size:15px;line-height:22px;color:#4B5563">from ${esc(d.partner_name)}</p>
+      <p class="sj-ink" style="margin:0;font-size:28px;line-height:34px;font-weight:700;color:#121417">${esc(headline)}</p>
+      <p class="sj-soft" style="margin:4px 0 18px 0;font-size:15px;line-height:22px;color:#4B5563">from ${esc(d.partner_name)}</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${items}</table>
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px 0"><tr><td style="background:#ff4f8d;border-radius:6px">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px 0"><tr><td style="${bg('#ff4f8d')};border-radius:6px">
         <a href="${SITE}" style="display:inline-block;padding:12px 22px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none">Open Silly Journal</a>
       </td></tr></table>
     </td></tr>
