@@ -21,15 +21,14 @@ export function catBackground(shell, { fade = true } = {}) {
   shell.prepend(bg);
 }
 
+// The signed-in person's name comes first.
 export function coupleNames(ctx) {
-  const order = (p) => (p.username === 'sillygokul' ? 0 : 1);
-  return [...ctx.profiles].sort((a, b) => order(a) - order(b)).map((p) => nameOf(p.id)).join(' & ');
+  return ctx.partner ? `${nameOf(ctx.me.id)} & ${nameOf(ctx.partner.id)}` : nameOf(ctx.me.id);
 }
 
 export function mountLayout(ctx, active) {
   const shell = document.querySelector('.shell');
   catBackground(shell);
-  // Always "Gokul & Xinyi", whoever is signed in.
   const names = coupleNames(ctx);
   const header = el('header', { class: 'site-header' },
     el('a', { class: 'brand', href: 'home.html', html: LOGO + '<span></span>' }),
