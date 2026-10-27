@@ -66,7 +66,7 @@ async function card(e, likers, cmts) {
   let thread = null;
   toggle.addEventListener('click', () => {
     if (!thread) {
-      thread = commentThread('entry', e.id, cmts, { onCount: (n) => { countLabel.textContent = commentCountText(n); } });
+      thread = commentThread('entry', e.id, cmts, { meId: ctx.me.id, onCount: (n) => { countLabel.textContent = commentCountText(n); } });
       thread.id = 'cm-' + e.id;
       thread.style.borderTop = '1px solid var(--line)';
       thread.style.background = '#fff';

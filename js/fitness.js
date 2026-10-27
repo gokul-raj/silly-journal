@@ -241,7 +241,7 @@ async function postCard(p, likers, cmts) {
         if (editing && editing.id === p.id) stopEdit();
         card.remove(); refreshStreak();
       } }, 'Delete') : null),
-    commentThread('gym', p.id, cmts, { onCount: (n) => { count.textContent = commentCountText(n); } }));
+    commentThread('gym', p.id, cmts, { meId: ctx.me.id, onCount: (n) => { count.textContent = commentCountText(n); } }));
   return card;
 }
 document.querySelectorAll('#filter button').forEach((b) => b.addEventListener('click', () => {

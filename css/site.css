@@ -117,6 +117,19 @@ textarea.input { height: auto; padding: 12px 14px; font-family: var(--serif); fo
 .like-btn[aria-pressed="true"] svg { fill: var(--accent); stroke: var(--accent); }
 .comments { display: flex; flex-direction: column; gap: 10px; padding: 12px 20px 16px; }
 .comment { display: flex; gap: 10px; font-size: 15px; align-items: flex-start; }
+.c-list { display: flex; flex-direction: column; gap: 14px; }
+.c-thread { display: flex; flex-direction: column; gap: 8px; }
+.c-replies { display: flex; flex-direction: column; gap: 10px; margin-left: 22px; padding-left: 14px; border-left: 2px solid var(--line); }
+.c-actions { display: flex; align-items: center; gap: 4px; margin-left: -6px; }
+.c-actions > .small { padding-left: 6px; margin-right: 4px; }
+.c-like, .c-reply { min-height: 32px; min-width: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: var(--nav); font-size: 13px; font-weight: 600; color: var(--muted); }
+.c-like:hover, .c-reply:hover { background: #F4F4F2; color: var(--ink); }
+.c-like svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.c-like[aria-pressed="true"] { color: var(--accent); }
+.c-like[aria-pressed="true"] svg { fill: var(--accent); stroke: var(--accent); }
+.reply-form .input { height: 40px; font-size: 15px; }
+.reply-form .btn { min-height: 40px; }
+@media (pointer: coarse) { .c-like, .c-reply { min-height: 40px; min-width: 40px; } }
 .comment .who { flex: 0 0 auto; }
 .comment-form { display: flex; gap: 8px; }
 .comment-form .input { flex: 1; height: 44px; }

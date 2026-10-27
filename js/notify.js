@@ -114,9 +114,9 @@ export function mountNotifications(ctx, slot) {
     const recent = (t, cols, who = 'user_id') => sb.from(t).select(cols).eq(who, partner).gte('created_at', since).order('created_at', { ascending: false }).limit(MAX);
     const [en, ec, gp, gc, wa] = await Promise.all([
       recent('entries', 'id, title, created_at', 'author'),
-      recent('entry_comments', 'id, entry_id, body, created_at'),
+      recent('entry_comments', '*'),
       recent('gym_posts', 'id, kind, body, created_at', 'author'),
-      recent('gym_comments', 'id, post_id, body, created_at'),
+      recent('gym_comments', '*'),
       recent('waterings', 'location, day, created_at')
     ]);
     const out = [];
@@ -125,6 +125,16 @@ export function mountNotifications(ctx, slot) {
     // Comment targets: page titles and whose gym post it was.
     const entryIds = [...new Set((ec.data || []).map((c) => c.entry_id))];
     const postIds = [...new Set((gc.data || []).map((c) => c.post_id))];
+    // Replies: whose comment was replied to?
+    const parentAuthor = new Map();
+    const epar = [...new Set((ec.data || []).map((c) => c.parent_id).filter(Boolean))];
+    const gpar = [...new Set((gc.data || []).map((c) => c.parent_id).filter(Boolean))];
+    const [ep, gpp] = await Promise.all([
+      epar.length ? sb.from('entry_comments').select('id, user_id').in('id', epar) : { data: [] },
+      gpar.length ? sb.from('gym_comments').select('id, user_id').in('id', gpar) : { data: [] }
+    ]);
+    for (const r of [...(ep.data || []), ...(gpp.data || [])]) parentAuthor.set(r.id, r.user_id);
+    const replyText = (c) => (c.parent_id ? (parentAuthor.get(c.parent_id) === me ? 'replied to your comment on' : 'replied to a comment on') : null);
     const [titles, posts] = await Promise.all([
       entryIds.length ? sb.from('entries').select('id, title, author').in('id', entryIds) : { data: [] },
       postIds.length ? sb.from('gym_posts').select('id, author, kind').in('id', postIds) : { data: [] }
@@ -134,7 +144,8 @@ export function mountNotifications(ctx, slot) {
     for (const c of ec.data || []) {
       const e = entryById.get(c.entry_id);
       const whose = e && e.author === me ? 'your page' : 'the page';
-      out.push({ key: 'ec:' + c.id, at: c.created_at, who: partner, text: `commented on ${whose} ${e ? '“' + short(e.title || 'Untitled page', 40) + '”' : ''}`.trim(), quote: short(c.body), href: 'entry.html?id=' + c.entry_id + '#comments' });
+      const verb = replyText(c) || 'commented on';
+      out.push({ key: 'ec:' + c.id, at: c.created_at, who: partner, text: `${verb} ${whose} ${e ? '“' + short(e.title || 'Untitled page', 40) + '”' : ''}`.trim(), quote: short(c.body), href: 'entry.html?id=' + c.entry_id + '#comments' });
     }
     for (const p of gp.data || []) {
       out.push({ key: 'gym:' + p.id, at: p.created_at, who: partner, text: p.kind === 'gym' ? 'posted a gym post' : 'asked a question in Silly Fitness', quote: short(p.body), href: 'fitness.html#post-' + p.id });
@@ -143,7 +154,7 @@ export function mountNotifications(ctx, slot) {
       const p = postById.get(c.post_id);
       const what = p ? (p.kind === 'gym' ? 'gym post' : 'question') : 'post';
       const whose = p && p.author === me ? 'your' : p && p.author === partner ? 'their' : 'a';
-      out.push({ key: 'gc:' + c.id, at: c.created_at, who: partner, text: `commented on ${whose} ${what}`, quote: short(c.body), href: 'fitness.html#post-' + c.post_id });
+      out.push({ key: 'gc:' + c.id, at: c.created_at, who: partner, text: `${replyText(c) || 'commented on'} ${whose} ${what}`, quote: short(c.body), href: 'fitness.html#post-' + c.post_id });
     }
     for (const w of wa.data || []) {
       const loc = LOCATIONS[w.location];

@@ -61,5 +61,5 @@ const { likes, comments } = await loadReactions('entry', [e.id]);
 const count = el('span', { class: 'muted', style: 'margin-left:auto' }, commentCountText(comments.get(e.id).length));
 $('reactions').append(
   el('div', { class: 'react-bar', style: 'border-top:0' }, likeButton('entry', e.id, likes.get(e.id), ctx.me.id), count),
-  commentThread('entry', e.id, comments.get(e.id), { onCount: (n) => { count.textContent = commentCountText(n); } }));
+  commentThread('entry', e.id, comments.get(e.id), { meId: ctx.me.id, onCount: (n) => { count.textContent = commentCountText(n); } }));
 if (location.hash === '#comments') $('reactions').scrollIntoView();

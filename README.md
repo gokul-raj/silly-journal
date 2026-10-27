@@ -18,6 +18,7 @@ If you set up the database before these were added, run each once in the SQL Edi
 - [`supabase/notifications.sql`](supabase/notifications.sql): remembers which notifications each of you has read.
 - [`supabase/highlights.sql`](supabase/highlights.sql): which page is each day's picture on the Memories calendar.
 - [`supabase/birthdays.sql`](supabase/birthdays.sql): your birthdays (Nov 8 and Sep 13 to start; change them in Settings).
+- [`supabase/comment-threads.sql`](supabase/comment-threads.sql): replies to comments and likes on comments.
 
 ### 2. Links in emails
 In **Authentication → URL Configuration**:
