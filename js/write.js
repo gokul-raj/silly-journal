@@ -81,14 +81,29 @@ function restore() {
   body.focus({ preventScroll: true });
   if (savedRange) { const s = getSelection(); s.removeAllRanges(); s.addRange(savedRange); }
 }
-function cmd(name, arg) { restore(); document.execCommand(name, false, arg); markDirty(); }
+// Where the cursor was last: the page text or the title. The toolbar formats the page
+// text; the title keeps one plain style, so formatting it does nothing (with a hint).
+let lastField = body;
+for (const n of [body, titleEl]) n.addEventListener('focusin', () => { lastField = n; });
+function cmd(name, arg) {
+  const s = getSelection();
+  if (lastField === titleEl || (s.rangeCount && titleEl.contains(s.anchorNode))) {
+    toast('The title keeps its own style. Highlight text on the page to format it.');
+    return;
+  }
+  restore(); document.execCommand(name, false, arg); markDirty();
+}
 
-$('fmt').addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
+// Keep the highlight when tapping toolbar buttons (mouse, touch and pen).
+for (const ev of ['mousedown', 'pointerdown']) $('fmt').addEventListener(ev, (e) => { if (e.target.closest('button')) e.preventDefault(); });
 $('fmt').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-cmd]');
   if (b) cmd(b.dataset.cmd, b.dataset.arg);
 });
 $('block').addEventListener('change', (e) => { cmd('formatBlock', '<' + e.target.value + '>'); });
+// Text size, font and colour come from menus; leave the highlight in place afterwards.
+const keepHighlight = () => { if (lastField === body) restore(); };
+for (const id of ['block', 'font', 'size']) $(id).addEventListener('change', keepHighlight);
 $('font').addEventListener('change', (e) => { if (e.target.value) cmd('fontName', e.target.value); e.target.value = ''; });
 $('size').addEventListener('change', (e) => { if (e.target.value) cmd('fontSize', e.target.value); e.target.value = ''; });
 $('fore').addEventListener('input', (e) => cmd('foreColor', e.target.value));
