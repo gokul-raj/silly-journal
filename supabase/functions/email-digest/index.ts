@@ -22,11 +22,24 @@ export function buildEmail(d: { partner_name: string; n: number; lines: string[]
   const subject = `New updates from ${d.partner_name} on Silly Journal!`;
   const headline = `${d.n} new notification${d.n === 1 ? '' : 's'}`;
   const text = [headline, '', ...d.lines.map((l) => '• ' + l), '', 'Open Silly Journal: ' + SITE].join('\n');
-  const html = `<div style="font-family:Helvetica,Arial,sans-serif;color:#121417;max-width:480px">
-  <p style="font-size:22px;font-weight:700;margin:0 0 12px">${esc(headline)}</p>
-  <ul style="padding-left:20px;margin:0 0 20px;font-size:16px;line-height:1.6">${d.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
-  <a href="${SITE}" style="display:inline-block;background:#ff4f8d;color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:6px">Open Silly Journal</a>
-</div>`;
+  const img = (name: string) => new URL('assets/email/' + name, SITE).href;
+  const items = d.lines.map((l) => `<tr><td width="22" valign="top" style="padding:7px 0 0 0;color:#ff4f8d;font-size:14px;line-height:20px">&#9829;</td><td style="padding:6px 0;font-size:16px;line-height:22px;color:#121417;border-bottom:1px solid #F0EEE8">${esc(l)}</td></tr>`).join('');
+  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#EDEDEB">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EDEDEB"><tr><td align="center" style="padding:24px 12px">
+  <table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;background:#FFFDF8;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(18,20,23,.12)">
+    <tr><td><a href="${SITE}"><img src="${img('header.png')}" width="520" alt="Silly Journal" style="display:block;width:100%;max-width:520px;height:auto;border:0"></a></td></tr>
+    <tr><td style="padding:26px 32px 6px 32px;font-family:Helvetica,Arial,sans-serif">
+      <p style="margin:0;font-size:28px;line-height:34px;font-weight:700;color:#121417">${esc(headline)}</p>
+      <p style="margin:4px 0 18px 0;font-size:15px;line-height:22px;color:#4B5563">from ${esc(d.partner_name)}</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${items}</table>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px 0"><tr><td style="background:#ff4f8d;border-radius:6px">
+        <a href="${SITE}" style="display:inline-block;padding:12px 22px;font-family:Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none">Open Silly Journal</a>
+      </td></tr></table>
+    </td></tr>
+    <tr><td><img src="${img('footer.png')}" width="520" alt="" style="display:block;width:100%;max-width:520px;height:auto;border:0"></td></tr>
+  </table>
+  <p style="margin:14px 0 0 0;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#6B7280">Sent at 8 AM Eastern when something on Silly Journal is waiting for you.</p>
+</td></tr></table></body></html>`;
   return { subject, text, html };
 }
 
