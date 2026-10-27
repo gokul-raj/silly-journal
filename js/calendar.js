@@ -13,10 +13,11 @@ const $ = (id) => document.getElementById(id);
 const ICON = {
   entry: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 19l3.5-1L19 7.5 16.5 5 6 15.5z"/></svg>',
   gym: '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 22c-4 0-7-2.8-7-6.6 0-3.2 2.2-5.2 3.6-7.2.4 1.6 1.3 2.6 2.2 3C10.4 7.6 12 4.4 14.8 2c-.3 3.2 1 5.2 2.4 7 1.2 1.5 1.8 3.2 1.8 5 0 4.4-3 8-7 8z"/></svg>',
-  us: '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0112 7.3a4.2 4.2 0 017.5 2.5C19.5 15.4 12 20 12 20z"/></svg>'
+  us: '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0112 7.3a4.2 4.2 0 017.5 2.5C19.5 15.4 12 20 12 20z"/></svg>',
+  bday: '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M12 2.5c1.2 1.3 1.6 2.3 1.2 3.1-.3.6-.8.9-1.2.9s-.9-.3-1.2-.9c-.4-.8 0-1.8 1.2-3.1z"/><rect x="11.1" y="7" width="1.8" height="3.5"/><path d="M5 11.5h14a1 1 0 011 1V15c-1.2 0-1.8.8-2.7.8S15.7 15 14.7 15s-1.6.8-2.7.8-1.7-.8-2.7-.8-1.6.8-2.6.8S5.2 15 4 15v-2.5a1 1 0 011-1z"/><path d="M4 16.6c.9.3 1.6.9 2.6.9s1.7-.8 2.7-.8 1.6.8 2.7.8 1.7-.8 2.7-.8 1.6.8 2.6.8 1.7-.6 2.7-.9V21H4z"/></svg>'
 };
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
-const MARK_CLASS = { entry: 'm-entry', gym: 'm-gym', us: 'm-us' };
+const MARK_CLASS = { entry: 'm-entry', gym: 'm-gym', us: 'm-us', bday: 'm-bday' };
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 // Dates are shown in the viewer's own time zone.
@@ -30,14 +31,36 @@ const byDay = new Map(); // key -> [event]
 const highlights = new Map(); // key -> { entry_id, set_by }
 let highlightsReady = false;  // false if the highlights table isn't set up yet
 const add = (k, ev) => { if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(ev); };
+let birthdays = []; // [{ user_id, month, day }]
+const [ty, tm, td] = TOGETHER.split('-').map(Number);
+const TYPE_ORDER = { us: 0, bday: 1 };
+
+// Everything on a day: saved memories plus the yearly ones (anniversary, birthdays).
+function eventsOf(k) {
+  const [y, m, d] = k.split('-').map(Number);
+  const list = [...(byDay.get(k) || [])];
+  if (m === tm && d === td && y >= ty) {
+    const n = y - ty;
+    list.push({ type: 'us', at: k + 'T00:00:00', title: n === 0 ? 'The day we got together' : `${n} year${n === 1 ? '' : 's'} together`, text: n === 0 ? 'Where it all started.' : 'Happy anniversary!' });
+  }
+  for (const b of birthdays) {
+    if (b.month === m && b.day === d) {
+      const mine = b.user_id === ctx.me.id;
+      list.push({ type: 'bday', at: k + 'T00:00:01', title: `${nameOf(b.user_id)}’s birthday`, text: mine ? 'Happy birthday to you!' : `Happy birthday, ${nameOf(b.user_id)}!` });
+    }
+  }
+  return list.sort((a, b) => (TYPE_ORDER[a.type] ?? 9) - (TYPE_ORDER[b.type] ?? 9) || (a.at < b.at ? -1 : 1));
+}
 
 async function loadAll() {
-  const [en, gp, gg, hl] = await Promise.all([
+  const [en, gp, gg, hl, bd] = await Promise.all([
     sb.from('entries').select('id, author, title, body_html, stickers, created_at').order('created_at'),
     sb.from('gym_posts').select('author, created_at').eq('kind', 'gym'),
     sb.from('gym_goals').select('goal, effective_from, created_at'),
-    sb.from('day_highlights').select('day, entry_id, set_by')
+    sb.from('day_highlights').select('day, entry_id, set_by'),
+    sb.from('birthdays').select('user_id, month, day')
   ]);
+  if (!bd.error) birthdays = bd.data || [];
   if (!hl.error) {
     highlightsReady = true;
     for (const h of hl.data || []) highlights.set(h.day, h);
@@ -51,13 +74,6 @@ async function loadAll() {
       add(keyOf(new Date(m.at)), { type: 'gym', at: m.at, title: milestoneLabel(m.weeks, m.restart), text: m.weeks === 1 ? 'We both hit the weekly gym goal.' : `${m.weeks} weeks in a row of both of us hitting the gym goal.` });
     }
   }
-  // Anniversaries, through next year.
-  const [ty, tm, td] = TOGETHER.split('-').map(Number);
-  for (let y = ty; y <= new Date().getFullYear() + 1; y++) {
-    const n = y - ty;
-    add(`${y}-${pad(tm)}-${pad(td)}`, { type: 'us', at: `${y}-${pad(tm)}-${pad(td)}T00:00:00`, title: n === 0 ? 'The day we got together' : `${n} year${n === 1 ? '' : 's'} together`, text: n === 0 ? 'Where it all started.' : 'Happy anniversary!' });
-  }
-  for (const list of byDay.values()) list.sort((a, b) => (a.type === 'us' ? -1 : b.type === 'us' ? 1 : a.at < b.at ? -1 : 1));
 }
 
 // ───────── Calendar sheets ─────────
@@ -83,7 +99,7 @@ function buildSheet(month) {
   for (let i = 0; i < 42; i++) {
     const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
     const k = keyOf(d);
-    const evs = byDay.get(k) || [];
+    const evs = eventsOf(k);
     const inMonth = d.getMonth() === m;
     if (inMonth) { pages += evs.filter((e) => e.type === 'entry').length; milestones += evs.filter((e) => e.type === 'gym').length; }
     const types = [...new Set(evs.map((e) => e.type))];
@@ -105,7 +121,7 @@ function buildSheet(month) {
 
 // The day's picture: the highlighted page if one was chosen, otherwise the first page with a photo.
 function featured(k) {
-  const evs = (byDay.get(k) || []).filter((e) => e.type === 'entry');
+  const evs = eventsOf(k).filter((e) => e.type === 'entry');
   const h = highlights.get(k);
   const chosen = h && evs.find((e) => e.id === h.entry_id);
   return chosen || evs.find((e) => e.photo) || null;
@@ -189,7 +205,7 @@ function select(k) {
   history.replaceState(null, '', '?d=' + k);
   const d = fromKey(k);
   $('day-title').textContent = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  const evs = byDay.get(k) || [];
+  const evs = eventsOf(k);
   $('day-sub').textContent = String(d.getFullYear()) + (k === todayKey ? ' · today' : '') + (evs.length ? ` · ${evs.length} ${evs.length === 1 ? 'memory' : 'memories'}` : '');
   if (!evs.length) {
     $('events').replaceChildren(el('p', { class: 'muted', style: 'margin:12px 0 0;font-family:var(--serif);font-size:17px' }, k === todayKey ? 'Nothing yet today. ' : k > todayKey ? 'This day hasn’t happened yet.' : 'No memories saved on this day.',
@@ -267,7 +283,8 @@ document.addEventListener('keydown', (e) => {
 $('legend').append(
   el('span', {}, el('span', { class: 'mark m-entry', html: ICON.entry }), 'Journal page'),
   el('span', {}, el('span', { class: 'mark m-gym', html: ICON.gym }), 'Gym streak milestone'),
-  el('span', {}, el('span', { class: 'mark m-us', html: ICON.us }), 'Our anniversary'));
+  el('span', {}, el('span', { class: 'mark m-us', html: ICON.us }), 'Our anniversary'),
+  el('span', {}, el('span', { class: 'mark m-bday', html: ICON.bday }), 'Birthday'));
 
 try {
   await loadAll();

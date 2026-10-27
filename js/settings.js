@@ -1,4 +1,4 @@
-import { sb, requireUser, nameOf, friendlyError } from './sb.js';
+import { sb, requireUser, nameOf, el, friendlyError } from './sb.js';
 import { mountLayout } from './layout.js';
 
 const ctx = await requireUser();
@@ -22,6 +22,56 @@ $('profile-form').addEventListener('submit', async (e) => {
   const { error } = await sb.from('profiles').update({ display_name: name }).eq('id', ctx.me.id);
   if (error) return say($('profile-msg'), false, friendlyError(error));
   say($('profile-msg'), true, 'Saved. Your posts now show “' + name + '”.');
+});
+
+// ───────── Birthdays ─────────
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAYS_IN = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const people = [ctx.me, ...(ctx.partner ? [ctx.partner] : [])];
+const bdayRows = new Map();
+for (const p of people) {
+  const id = p.id.slice(0, 8);
+  const month = el('select', { class: 'input', id: 'bm-' + id, 'aria-label': `${nameOf(p.id)}’s birthday month` },
+    el('option', { value: '' }, 'Month'), MONTHS.map((m, i) => el('option', { value: String(i + 1) }, m)));
+  const day = el('select', { class: 'input', id: 'bd-' + id, 'aria-label': `${nameOf(p.id)}’s birthday day` }, el('option', { value: '' }, 'Day'));
+  const fillDays = () => {
+    const keep = day.value;
+    const n = month.value ? DAYS_IN[month.value - 1] : 31;
+    day.replaceChildren(el('option', { value: '' }, 'Day'), ...Array.from({ length: n }, (_, i) => el('option', { value: String(i + 1) }, String(i + 1))));
+    if (keep && +keep <= n) day.value = keep;
+  };
+  month.addEventListener('change', fillDays);
+  fillDays();
+  bdayRows.set(p.id, { month, day, fillDays });
+  $('bday-rows').append(el('div', { class: 'bday-row' }, el('span', { class: 'who' }, p.id === ctx.me.id ? `${nameOf(p.id)} (you)` : nameOf(p.id)), month, day));
+}
+let bdayReady = true;
+(async () => {
+  const { data, error } = await sb.from('birthdays').select('user_id, month, day');
+  if (error) {
+    bdayReady = false;
+    say($('bday-msg'), false, 'Birthdays aren’t set up in the database yet. Run supabase/birthdays.sql in the Supabase SQL Editor.');
+    return;
+  }
+  for (const b of data || []) {
+    const r = bdayRows.get(b.user_id);
+    if (!r) continue;
+    r.month.value = String(b.month); r.fillDays(); r.day.value = String(b.day);
+  }
+})();
+$('bday-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!bdayReady) return;
+  const rows = [];
+  for (const [user_id, r] of bdayRows) {
+    if (!r.month.value && !r.day.value) continue;
+    if (!r.month.value || !r.day.value) return say($('bday-msg'), false, `Pick both a month and a day for ${nameOf(user_id)}.`);
+    rows.push({ user_id, month: +r.month.value, day: +r.day.value, updated_by: ctx.me.id, updated_at: new Date().toISOString() });
+  }
+  if (!rows.length) return say($('bday-msg'), false, 'Pick a birthday first.');
+  const { error } = await sb.from('birthdays').upsert(rows, { onConflict: 'user_id' });
+  if (error) return say($('bday-msg'), false, friendlyError(error));
+  say($('bday-msg'), true, 'Saved. The calendar shows ' + rows.map((r) => `${nameOf(r.user_id)}’s on ${MONTHS[r.month - 1]} ${r.day}`).join(' and ') + '.');
 });
 
 $('pw-form').addEventListener('submit', async (e) => {

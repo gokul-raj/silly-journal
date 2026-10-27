@@ -13,6 +13,9 @@
   .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
   .card form { display: flex; flex-direction: column; gap: 16px; }
+  .bday-row { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(0, 2fr) minmax(0, 1fr); gap: 10px; align-items: center; }
+  .bday-row .who { font-weight: 600; }
+  @media (max-width: 560px) { .bday-row { grid-template-columns: 1fr 1fr; } .bday-row .who { grid-column: 1 / -1; } }
 </style>
 </head>
 <body class="wait">
@@ -33,6 +36,15 @@
         </form>
       </section>
 
+      <section class="card" aria-labelledby="bdays">
+        <h2 id="bdays" class="card-title">Birthdays</h2>
+        <p style="margin:0" class="muted small">They show up on the Memories calendar every year. Either of you can change either one.</p>
+        <form id="bday-form">
+          <div id="bday-rows" style="display:flex;flex-direction:column;gap:14px"></div>
+          <p id="bday-msg" class="msg" role="status" hidden></p>
+          <button class="btn btn-dark" type="submit" style="align-self:flex-start">Save birthdays</button>
+        </form>
+      </section>
       <section class="card" aria-labelledby="pw">
         <h2 id="pw" class="card-title">Change your password</h2>
         <form id="pw-form">
