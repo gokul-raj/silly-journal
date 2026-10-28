@@ -118,7 +118,7 @@ function buildSheet(month) {
     const evs = eventsOf(k);
     const inMonth = d.getMonth() === m;
     if (inMonth) { pages += evs.filter((e) => e.type === 'entry').length; gymPosts += evs.filter((e) => e.type === 'gympost').length; milestones += evs.filter((e) => e.type === 'gym').length; }
-    const types = [...new Set(evs.map((e) => e.type))];
+    const types = [...new Set(evs.map((e) => e.type))].filter((t) => t !== 'gympost'); // gym posts: listed when you tap the day, no mark
     const label = `${MONTHS[d.getMonth()]} ${d.getDate()}` + (evs.length ? `, ${evs.length} ${evs.length === 1 ? 'memory' : 'memories'}` : '');
     const cell = el('button', { type: 'button', class: 'day' + (inMonth ? '' : ' out') + (k === todayKey ? ' today' : ''), 'data-k': k, 'aria-pressed': String(k === selected), 'aria-label': label },
       el('span', { class: 'n' }, String(d.getDate())),
@@ -310,7 +310,6 @@ document.addEventListener('keydown', (e) => {
 
 $('legend').append(
   el('span', {}, el('span', { class: 'mark m-entry', html: ICON.entry }), 'Journal page'),
-  el('span', {}, el('span', { class: 'mark m-gympost', html: ICON.gympost }), 'Gym post'),
   el('span', {}, el('span', { class: 'mark m-gym', html: ICON.gym }), 'Gym streak milestone'),
   el('span', {}, el('span', { class: 'mark m-us', html: ICON.us }), 'Our anniversary'),
   el('span', {}, el('span', { class: 'mark m-bday', html: ICON.bday }), 'Birthday'));
