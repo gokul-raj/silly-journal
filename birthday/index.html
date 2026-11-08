@@ -144,13 +144,17 @@
     animation: bob 2.2s ease-in-out infinite; perspective: 900px;
   }
   @keyframes bob { 0%,100% { transform: translateY(0) rotate(-1.5deg) } 50% { transform: translateY(-10px) rotate(1.5deg) } }
-  .env .back { position: absolute; inset: 0; background: #e8899f; border-radius: 10px; box-shadow: 0 18px 40px rgba(0,0,0,.45); }
+  .env .back { position: absolute; inset: 0; z-index: 0; background: #e8899f; border-radius: 10px; box-shadow: 0 18px 40px rgba(0,0,0,.45); }
   .env .paper {
-    position: absolute; left: 7%; right: 7%; top: 8%; height: 80%; background: #fffaf2; border-radius: 6px;
-    transition: transform .8s cubic-bezier(.3,1.3,.5,1) .35s;
+    position: absolute; left: 7%; right: 7%; top: 8%; height: 80%; z-index: 1; background: #fffaf2; border-radius: 6px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.04);
+  }
+  .env .paper::before {
+    content: ''; position: absolute; left: 10%; right: 10%; top: 16%; bottom: 10%;
+    background: repeating-linear-gradient(to bottom, transparent 0 14px, rgba(255,126,182,.3) 14px 15px);
   }
   .env .front {
-    position: absolute; inset: 0; border-radius: 10px;
+    position: absolute; inset: 0; z-index: 2; border-radius: 10px;
     background: linear-gradient(to top right, #ffb3c6 49.6%, transparent 50%) left / 50.5% 100% no-repeat,
                 linear-gradient(to top left, #ffa6bc 49.6%, transparent 50%) right / 50.5% 100% no-repeat;
   }
@@ -166,7 +170,13 @@
   .env.open { animation: none; }
   .env.open .flap { transform: rotateX(180deg); z-index: 0; }
   .env.open .heart { opacity: 0; }
-  .env.open .paper { transform: translateY(-45%); }
+  .env.open .paper { animation: pullOut 1.1s cubic-bezier(.4,0,.2,1) .35s forwards; }
+  @keyframes pullOut {
+    0%   { transform: translateY(0);                z-index: 1; }
+    50%  { transform: translateY(-75%);             z-index: 1; }
+    51%  { transform: translateY(-75%);             z-index: 6; box-shadow: 0 8px 20px rgba(0,0,0,.25); }
+    100% { transform: translateY(-15%) scale(1.3);  z-index: 6; box-shadow: 0 12px 28px rgba(0,0,0,.3); }
+  }
   .env-hint { font-size: 15px; opacity: .75; letter-spacing: .1em; }
   .letter {
     display: none; width: min(640px, 90vw); max-height: 68vh; overflow-y: auto;
@@ -543,7 +553,7 @@
       env.style.display = 'none';
       document.querySelector('.env-cap').style.display = 'none';
       letter.classList.add('show-it');
-    }, 1200);
+    }, 1500);
   });
   document.getElementById('toMemories').addEventListener('click', () => {
     document.body.classList.remove('letter-on');
