@@ -113,14 +113,14 @@
     flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
     height: 100vh; transition: height 1.4s cubic-bezier(.6,.05,.25,1);
   }
-  body.slides-on .hb-wrap { height: clamp(90px, 17vh, 170px); }
+  body.slides-on .hb-wrap, body.letter-on .hb-wrap { height: clamp(90px, 17vh, 170px); }
   .halo {
     position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
     width: min(115vw, 1700px); height: min(62vh, 460px); pointer-events: none;
     background: radial-gradient(closest-side, rgba(11,8,32,.82), rgba(11,8,32,.6) 60%, rgba(11,8,32,0));
     transition: height 1.4s cubic-bezier(.6,.05,.25,1);
   }
-  body.slides-on .halo { height: min(30vh, 260px); width: min(100vw, 1100px); }
+  body.slides-on .halo, body.letter-on .halo { height: min(30vh, 260px); width: min(100vw, 1100px); }
   .hb {
     font-family: 'ArcadeClassic', 'Fredoka', monospace; font-weight: 400;
     font-size: clamp(48px, 11vw, 150px); line-height: 1.2; padding: 0 .2em; letter-spacing: .04em;
@@ -128,7 +128,69 @@
     text-shadow: .06em .06em 0 #ff4fa3, .12em .12em 0 rgba(126,200,255,.55), 0 0 24px rgba(255,126,182,.3);
     transition: font-size 1.4s cubic-bezier(.6,.05,.25,1);
   }
-  body.slides-on .hb { font-size: clamp(32px, 6vw, 80px); }
+  body.slides-on .hb, body.letter-on .hb { font-size: clamp(32px, 6vw, 80px); }
+
+  /* envelope + letter */
+  #envArea { display: none; flex-direction: column; align-items: center; gap: clamp(14px, 3vh, 28px); margin-top: 1vh; }
+  body.letter-on #envArea { display: flex; animation: riseIn 1s ease both; }
+  @keyframes riseIn { from { opacity: 0; transform: translateY(40px) } to { opacity: 1; transform: none } }
+  .env-cap {
+    font-family: 'ArcadeClassic', 'Fredoka', monospace; font-size: clamp(30px, 5vw, 60px); letter-spacing: .05em;
+    color: #ffd36e; text-shadow: .06em .06em 0 #ff4fa3; animation: blink 1.2s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: .55 } }
+  .env {
+    position: relative; width: min(380px, 78vw); aspect-ratio: 3 / 2; cursor: pointer;
+    animation: bob 2.2s ease-in-out infinite; perspective: 900px;
+  }
+  @keyframes bob { 0%,100% { transform: translateY(0) rotate(-1.5deg) } 50% { transform: translateY(-10px) rotate(1.5deg) } }
+  .env .back { position: absolute; inset: 0; background: #e8899f; border-radius: 10px; box-shadow: 0 18px 40px rgba(0,0,0,.45); }
+  .env .paper {
+    position: absolute; left: 7%; right: 7%; top: 8%; height: 80%; background: #fffaf2; border-radius: 6px;
+    transition: transform .8s cubic-bezier(.3,1.3,.5,1) .35s;
+  }
+  .env .front {
+    position: absolute; inset: 0; border-radius: 10px;
+    background: linear-gradient(to top right, #ffb3c6 49.6%, transparent 50%) left / 50.5% 100% no-repeat,
+                linear-gradient(to top left, #ffa6bc 49.6%, transparent 50%) right / 50.5% 100% no-repeat;
+  }
+  .env .front::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 55%;
+    background: #ffc2d1; clip-path: polygon(0 100%, 50% 0, 100% 100%); border-radius: 0 0 10px 10px;
+  }
+  .env .flap {
+    position: absolute; left: 0; right: 0; top: 0; height: 58%; background: #f797b0;
+    clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: top; transition: transform .6s ease; z-index: 3;
+  }
+  .env .heart { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); font-size: clamp(28px, 6vw, 44px); z-index: 4; transition: opacity .3s; }
+  .env.open { animation: none; }
+  .env.open .flap { transform: rotateX(180deg); z-index: 0; }
+  .env.open .heart { opacity: 0; }
+  .env.open .paper { transform: translateY(-45%); }
+  .env-hint { font-size: 15px; opacity: .75; letter-spacing: .1em; }
+  .letter {
+    display: none; width: min(640px, 90vw); max-height: 68vh; overflow-y: auto;
+    background: #fffaf2; color: #3a2440; border-radius: 16px; padding: clamp(22px, 4vw, 40px);
+    text-align: left; font-size: clamp(16px, 2vw, 19px); line-height: 1.7;
+    box-shadow: 0 0 0 5px #ffc2d1, 0 24px 60px rgba(0,0,0,.55);
+    user-select: text;
+  }
+  .letter.show-it { display: block; animation: unfold .7s cubic-bezier(.2,1.2,.4,1) both; }
+  @keyframes unfold { from { opacity: 0; transform: scale(.6) translateY(60px) } to { opacity: 1; transform: none } }
+  .letter .dear { font-weight: 700; font-size: 1.15em; margin-bottom: .6em; }
+  .letter p { margin-bottom: 1em; }
+  .letter .sign { text-align: right; font-weight: 600; }
+  .letter button {
+    display: block; margin: 18px auto 0; border: none; cursor: pointer; font-family: inherit;
+    background: #ff4fa3; color: #fff; font-size: 16px; font-weight: 600; padding: 10px 22px; border-radius: 999px;
+    box-shadow: 0 4px 0 #c8327c;
+  }
+  .letter button:active { transform: translateY(2px); box-shadow: 0 2px 0 #c8327c; }
+  .show { display: none; }
+  body.slides-on .show { display: block; animation: riseIn 1.2s ease both; }
+  #dUnit { display: none; }
+  body.has-days #dUnit, body.has-days #dColon { display: block; }
+  #dColon { display: none; }
   #celebrate:not(.hidden) .hb { animation: popIn 1.2s cubic-bezier(.2,1.6,.4,1) both; }
   @keyframes shimmer { to { background-position: 300% 0 } }
   @keyframes popIn { 0% { transform: scale(.2) rotate(-6deg); opacity: 0 } 100% { transform: none; opacity: 1 } }
@@ -216,6 +278,8 @@
     <div class="eyebrow">Counting down to</div>
     <h1 class="title">Xinyi<span class="apos">'</span>s Birthday</h1>
     <div class="clock">
+      <div class="unit" id="dUnit"><span class="num" id="d">000</span><span class="lbl">Days</span></div>
+      <div class="colon" id="dColon">:</div>
       <div class="unit"><span class="num" id="h">00</span><span class="lbl">Hours</span></div>
       <div class="colon">:</div>
       <div class="unit"><span class="num" id="m">00</span><span class="lbl">Minutes</span></div>
@@ -230,6 +294,19 @@
 
   <section class="stage hidden" id="celebrate">
     <div class="hb-wrap"><div class="halo"></div><h1 class="hb">Happy Birthday Xinyi!</h1></div>
+    <div id="envArea">
+      <div class="env-cap">You have a message</div>
+      <div class="env" id="env" role="button" aria-label="Open the letter">
+        <div class="back"></div><div class="paper"></div><div class="front"></div><div class="flap"></div><div class="heart">💌</div>
+      </div>
+      <div class="env-hint" id="envHint">Tap the envelope</div>
+      <div class="letter" id="letter">
+        <div class="dear">Dear Xinyi,</div>
+        <p>Happy birthday and miss you every day. You light up my life every time you smile or laugh at a meme or make silly jokes. Your music, art, creativity and funny silly humor makes you who you are there. There is no other Xinyi who could be you, you make the name beautiful. On this day, let's celebrate you and also look back on our memories this year!</p>
+        <p class="sign">Love,<br>Gokul</p>
+        <button id="toMemories">Look back at our memories ▶</button>
+      </div>
+    </div>
     <div class="show" id="show">
       <div class="frame" id="frame"><div class="bar" id="bar"></div></div>
       <button class="nav prev" id="prev" aria-label="Previous photo">&#8249;</button>
@@ -262,6 +339,10 @@
     badge.textContent = 'Test mode'; badge.style.display = 'block';
   }
   if (params.has('celebrate')) { target = Date.now() - 1; }
+  const NEXT_BIRTHDAY = new Date(Date.UTC(2027, 10, 8, 5, 0, 0));  // Nov 8, 2027 at 12:00 AM Eastern
+  // opened after the birthday is over? count to next year's straight away
+  if (!params.has('test') && !params.has('celebrate') && Date.now() > target + 24 * 3600 * 1000) target = NEXT_BIRTHDAY.getTime();
+  const slideMs = params.has('test') ? 1500 : SLIDE_MS;   // faster slideshow while testing
 
   // ---------------- stars ----------------
   const starBox = document.getElementById('stars');
@@ -356,7 +437,7 @@
   function updateZone() {
     const celebrating = !document.getElementById('celebrate').classList.contains('hidden');
     const z = celebrating
-      ? unionRect(document.body.classList.contains('slides-on') ? '.hb, .show, .meta' : '.hb')
+      ? unionRect(document.body.classList.contains('slides-on') ? '.hb, .show, .meta' : document.body.classList.contains('letter-on') ? '.hb, #envArea' : '.hb')
       : unionRect('#countdown .eyebrow, #countdown .title, #countdown .clock, #countdown .sub');
     if (!z) { zone = null; return; }
     const pad = 16;
@@ -396,10 +477,14 @@
   gifs.forEach(g => addFloater(g, .9));
 
   // ---------------- countdown ----------------
-  const hEl = document.getElementById('h'), mEl = document.getElementById('m'), sEl = document.getElementById('s');
+  const dEl = document.getElementById('d'), hEl = document.getElementById('h'), mEl = document.getElementById('m'), sEl = document.getElementById('s');
   const bigTick = document.getElementById('bigTick');
   const whenText = document.getElementById('whenText');
-  whenText.textContent = '12:00 AM ET, Nov 8 2026';
+  function setWhen() {
+    const y = new Date(target).toLocaleDateString('en-US', { year: 'numeric', timeZone: 'America/New_York' });
+    whenText.textContent = '12:00 AM ET, Nov 8 ' + y;
+  }
+  setWhen();
   let phase = 'countdown';
   let lastShown = -1;
   const pad = n => String(n).padStart(2, '0');
@@ -410,10 +495,14 @@
     const total = Math.ceil(ms / 1000);
     if (total === lastShown) return;
     lastShown = total;
-    hEl.textContent = pad(Math.floor(total / 3600));
+    const days = Math.floor(total / 86400);
+    const hrs = days > 0 ? Math.floor(total % 86400 / 3600) : Math.floor(total / 3600);
+    document.body.classList.toggle('has-days', days > 0);
+    dEl.textContent = days;
+    hEl.textContent = pad(hrs);
     mEl.textContent = pad(Math.floor(total % 3600 / 60));
     sEl.textContent = pad(total % 60);
-    document.title = `${pad(Math.floor(total / 3600))}:${pad(Math.floor(total % 3600 / 60))}:${pad(total % 60)} · Xinyi's Birthday`;
+    document.title = `${days > 0 ? days + 'd ' : ''}${pad(hrs)}:${pad(Math.floor(total % 3600 / 60))}:${pad(total % 60)} · Xinyi's Birthday`;
     if (total <= 10) {
       document.body.classList.add('final');
       bigTick.textContent = total;
@@ -439,8 +528,47 @@
     setTimeout(() => { fwInterval = 380; }, 6000);
     // start the song at midnight (if it isn't already playing)
     try { if (window.spotifyCtl && window.spotifyPaused !== false) window.spotifyCtl.play(); } catch (e) {}
-    setTimeout(() => { document.body.classList.add('slides-on'); startSlides(); }, CELEBRATE_BEFORE_SLIDES_MS);
+    setTimeout(() => { document.body.classList.add('letter-on'); }, CELEBRATE_BEFORE_SLIDES_MS);
     setTimeout(() => { fwInterval = 900; }, CELEBRATE_BEFORE_SLIDES_MS + 4000);
+  }
+
+  // ---------------- envelope + letter ----------------
+  const env = document.getElementById('env'), letter = document.getElementById('letter');
+  env.addEventListener('click', () => {
+    if (env.classList.contains('open')) return;
+    env.classList.add('open');
+    document.getElementById('envHint').style.display = 'none';
+    for (let i = 0; i < 3; i++) setTimeout(randomConfetti, i * 200);
+    setTimeout(() => {
+      env.style.display = 'none';
+      document.querySelector('.env-cap').style.display = 'none';
+      letter.classList.add('show-it');
+    }, 1200);
+  });
+  document.getElementById('toMemories').addEventListener('click', () => {
+    document.body.classList.remove('letter-on');
+    document.body.classList.add('slides-on');
+    startSlides();
+  });
+
+  // ---------------- back to counting: next year's birthday ----------------
+  function restartCountdown() {
+    slidesStarted = false;
+    if (cur >= 0) slides[cur].classList.remove('on');
+    cur = -1;
+    target = NEXT_BIRTHDAY.getTime();
+    setWhen();
+    phase = 'countdown'; lastShown = -1; fwInterval = 120;
+    document.body.classList.remove('slides-on', 'letter-on', 'celebrating', 'final');
+    document.getElementById('celebrate').classList.add('hidden');
+    document.getElementById('countdown').classList.remove('hidden');
+    document.getElementById('flash').classList.remove('go');
+    bigTick.style.display = '';
+    // reset the envelope so it works again next year
+    env.classList.remove('open'); env.style.display = '';
+    document.querySelector('.env-cap').style.display = '';
+    document.getElementById('envHint').style.display = '';
+    letter.classList.remove('show-it');
   }
 
   // ---------------- slideshow ----------------
@@ -585,11 +713,11 @@
     // slideshow timing
     if (slidesStarted) {
       if (playing) {
-        const p = (now - slideStart) / SLIDE_MS;
+        const p = (now - slideStart) / slideMs;
         bar.style.width = Math.min(100, p * 100) + '%';
-        if (p >= 1) show(cur + 1);
+        if (p >= 1) { if (cur === slides.length - 1) restartCountdown(); else show(cur + 1); }
       } else {
-        slideStart = now - (parseFloat(bar.style.width) || 0) / 100 * SLIDE_MS;
+        slideStart = now - (parseFloat(bar.style.width) || 0) / 100 * slideMs;
       }
     }
 
