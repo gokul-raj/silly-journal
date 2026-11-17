@@ -2,7 +2,7 @@ import { sb, requireUser, nameOf, chipClass, signedUrl, uploadFile, shrinkImage,
 import { mountLayout } from './layout.js';
 import { loadReactions, likeButton, commentThread, commentCountText } from './reactions.js';
 import { computeStreak, goalFor, nextMonday } from './streak.js';
-import { cardioStats } from './cardio.js';
+import { cardioStats, ACTIVITIES, ACT, EFFORTS, activityOf } from './cardio.js';
 
 const ctx = await requireUser();
 mountLayout(ctx, 'fitness.html');
@@ -77,37 +77,52 @@ function setKind(k) {
 }
 document.querySelectorAll('#kind button').forEach((b) => b.addEventListener('click', () => setKind(b.dataset.k)));
 
-// One exercise. With 2+ sets, each set gets its own weight box (blank = same as the set before).
+// One exercise. With 2+ sets, each set gets its own weight and reps
+// (a blank box means "same as the set before").
 const MAX_SETS = 12;
+// Older posts kept weights per set only; newer ones keep { w, r } for each set.
+const setsOf = (v) => (Array.isArray(v.perSet) ? v.perSet
+  : Array.isArray(v.weights) ? v.weights.map((w) => ({ w, r: v.reps || '' })) : []);
 function addRow(v = {}) {
   const i = $('rows').children.length + 1;
   const mk = (name, label, extra = {}) => el('input', { class: 'input', 'aria-label': `${label} ${i}`, 'data-f': name, value: v[name] || '', ...extra });
   const sets = mk('sets', 'Sets', { inputmode: 'numeric' });
-  const weight = mk('weight', 'Weight');
+  const reps = mk('reps', 'Reps', { inputmode: 'numeric', value: Array.isArray(v.perSet) ? '' : (v.reps || '') });
+  const weight = mk('weight', 'Weight', { value: Array.isArray(v.weights) || Array.isArray(v.perSet) ? '' : (v.weight || '') });
   const perSet = el('div', { class: 'per-set', hidden: true });
   const wrap = el('div', { class: 'lift-row' });
   wrap.append(
-    el('div', { class: 'grid4' },
-      mk('name', 'Exercise', { placeholder: i === 1 ? 'e.g. Squat' : '' }),
-      sets, mk('reps', 'Reps', { inputmode: 'numeric' }), weight,
+    el('div', { class: 'grid4' }, mk('name', 'Exercise', { placeholder: i === 1 ? 'e.g. Squat' : '' }), sets, reps, weight,
       el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove exercise ' + i, onclick: () => { wrap.remove(); } }, '×')),
     perSet);
-  const prior = Array.isArray(v.weights) ? v.weights : [];
+  const prior = setsOf(v);
   const draw = () => {
     const n = Math.min(MAX_SETS, parseInt(sets.value, 10) || 0);
-    const old = [...perSet.querySelectorAll('input')].map((x) => x.value);
-    if (n < 2) { perSet.hidden = true; weight.hidden = false; perSet.replaceChildren(); return; }
+    const old = [...perSet.querySelectorAll('.set-box')].map((b) => ({ w: b.querySelector('[data-set]').value, r: b.querySelector('[data-rep]').value }));
+    if (n < 2) { perSet.hidden = true; weight.hidden = false; reps.hidden = false; perSet.replaceChildren(); return; }
     perSet.hidden = false;
-    weight.hidden = true;
+    weight.hidden = true; reps.hidden = true;
     const boxes = Array.from({ length: n }, (_, k) => {
-      const val = old[k] ?? prior[k] ?? (k === 0 ? weight.value : '');
-      return el('label', { class: 'set-box' }, el('span', {}, 'Set ' + (k + 1)),
-        el('input', { class: 'input', 'data-set': String(k), value: val || '', 'aria-label': `Weight for set ${k + 1} of exercise ${i}` }));
+      const o = old[k] || prior[k] || {};
+      const w = o.w ?? (k === 0 ? weight.value : '');
+      const r = o.r ?? (k === 0 ? reps.value : '');
+      return el('div', { class: 'set-box', role: 'group', 'aria-label': `Set ${k + 1} of exercise ${i}` },
+        el('span', { class: 'set-n' }, 'Set ' + (k + 1)),
+        el('input', { class: 'input', 'data-set': String(k), value: w || '', 'aria-label': `Weight, set ${k + 1}`, title: 'Weight' }),
+        el('span', { class: 'muted', 'aria-hidden': 'true' }, '×'),
+        el('input', { class: 'input reps', 'data-rep': String(k), inputmode: 'numeric', value: r || '', 'aria-label': `Reps, set ${k + 1}`, title: 'Reps' }));
     });
-    perSet.replaceChildren(el('span', { class: 'small muted per-set-label' }, 'Weight each set'), ...boxes);
-    // A blank set shows the one before it as a hint, since that's what it'll save as.
-    const hint = () => { let last = ''; perSet.querySelectorAll('input').forEach((x) => { x.placeholder = last; last = x.value.trim() || last; }); };
-    perSet.querySelectorAll('input').forEach((x) => x.addEventListener('input', hint));
+    perSet.replaceChildren(el('span', { class: 'small muted per-set-label' }, 'Each set: weight × reps'), ...boxes);
+    // A blank box shows the set before it as a hint, since that's what it'll save as.
+    const hint = () => {
+      let lw = '', lr = '';
+      perSet.querySelectorAll('.set-box').forEach((b) => {
+        const wi = b.querySelector('[data-set]'), ri = b.querySelector('[data-rep]');
+        wi.placeholder = lw || 'weight'; ri.placeholder = lr || 'reps';
+        lw = wi.value.trim() || lw; lr = ri.value.trim() || lr;
+      });
+    };
+    perSet.addEventListener('input', hint);
     hint();
   };
   sets.addEventListener('input', draw);
@@ -118,42 +133,61 @@ function readLifts() {
   return [...$('rows').children].map((r) => {
     const f = Object.fromEntries([...r.querySelectorAll('[data-f]')].map((x) => [x.dataset.f, x.value.trim()]));
     if (!f.name) return null;
-    const boxes = [...r.querySelectorAll('input[data-set]')];
+    const boxes = [...r.querySelectorAll('.set-box')];
     if (boxes.length >= 2) {
-      let last = '';
-      const ws = boxes.map((x) => (last = x.value.trim() || last));
-      if (ws.some(Boolean)) {
-        if (new Set(ws).size > 1) { f.weights = ws; f.weight = ws.join(' / '); } else { f.weight = ws[0]; }
-      }
+      let lw = '', lr = '';
+      const per = boxes.map((b) => ({ w: (lw = b.querySelector('[data-set]').value.trim() || lw), r: (lr = b.querySelector('[data-rep]').value.trim() || lr) }));
+      const sameW = new Set(per.map((p) => p.w)).size === 1, sameR = new Set(per.map((p) => p.r)).size === 1;
+      f.reps = sameR ? per[0].r : per.map((p) => p.r).join(' / ');
+      f.weight = sameW ? per[0].w : per.map((p) => p.w).join(' / ');
+      if (!sameW || !sameR) f.perSet = per;
     }
     return f;
   }).filter(Boolean);
 }
 
-// One cardio activity, with live pace and calories underneath.
+// One cardio activity: pick it from the list, plus minutes, distance (optional) and effort.
+// Pace and calories update as you type.
 function addCardio(v = {}) {
   const i = $('cardio-rows').children.length + 1;
-  const mk = (name, label, extra = {}) => el('input', { class: 'input', 'aria-label': `${label} ${i}`, 'data-f': name, value: v[name] || '', ...extra });
+  const key = v.act && ACT[v.act] ? v.act : v.name ? activityOf(v.name) : 'run';
+  const custom = key === 'other' && v.name && v.name !== ACT.other.label ? v.name : '';
+  const act = el('select', { class: 'input', 'data-f': 'act', 'aria-label': 'Activity ' + i },
+    ACTIVITIES.map((a) => el('option', { value: a.key, selected: a.key === key }, a.label)));
+  const other = el('input', { class: 'input', 'data-f': 'other', 'aria-label': 'What activity ' + i, placeholder: 'What did you do?', value: custom, hidden: key !== 'other', maxlength: '40' });
+  const minutes = el('input', { class: 'input', 'data-f': 'minutes', 'aria-label': 'Minutes ' + i, inputmode: 'decimal', value: v.minutes || '', placeholder: 'min' });
+  const distance = el('input', { class: 'input', 'data-f': 'distance', 'aria-label': 'Distance ' + i, value: v.distance || '' });
+  const effort = el('select', { class: 'input', 'data-f': 'effort', 'aria-label': 'Effort ' + i },
+    EFFORTS.map(([k, label]) => el('option', { value: k, selected: k === (v.effort || 'moderate') }, label)));
   const stats = el('div', { class: 'cardio-stats small', 'aria-live': 'polite' });
   const wrap = el('div', { class: 'cardio-row' });
-  const grid = el('div', { class: 'grid3' },
-    mk('name', 'Cardio', { placeholder: i === 1 ? 'e.g. Run, Bike, Stairs' : '' }),
-    mk('minutes', 'Minutes', { inputmode: 'decimal', placeholder: i === 1 ? 'e.g. 30' : '' }), mk('distance', 'Distance', { placeholder: i === 1 ? 'e.g. 3 mi' : '' }),
+  const grid = el('div', { class: 'grid-cardio' }, el('div', { class: 'act-cell' }, act, other), minutes, distance, effort,
     el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove cardio ' + i, onclick: () => { wrap.remove(); } }, '×'));
   wrap.append(grid, stats);
   const update = () => {
-    const f = Object.fromEntries([...grid.querySelectorAll('[data-f]')].map((x) => [x.dataset.f, x.value.trim()]));
-    const st = cardioStats(f, myWeight);
+    const a = ACT[act.value];
+    other.hidden = act.value !== 'other';
+    distance.disabled = !a.distance;
+    distance.placeholder = a.distance ? (act.value === 'swim' || act.value === 'row' ? 'e.g. 1000 m' : 'e.g. 3 mi') : '—';
+    if (!a.distance) distance.value = '';
+    const st = cardioStats(readCardio(wrap), myWeight);
     const bits = [];
-    if (st.pace) bits.push(el('span', {}, el('strong', {}, 'Pace '), st.pace));
+    if (st.pace) bits.push(el('span', {}, el('strong', {}, (act.value === 'bike' || act.value === 'spin') ? 'Speed ' : 'Pace '), st.pace));
     if (st.cal) bits.push(el('span', {}, el('strong', {}, '≈ ' + st.cal), ' cal'));
-    else if (f.minutes && !myWeight) bits.push(el('span', { class: 'muted' }, el('a', { href: 'settings.html' }, 'Add your weight in Settings'), ' to see calories'));
+    else if (minutes.value.trim() && !myWeight) bits.push(el('span', { class: 'muted' }, el('a', { href: 'settings.html' }, 'Add your weight in Settings'), ' to see calories'));
     stats.replaceChildren(...bits.flatMap((b, k) => (k ? [el('span', { class: 'muted', 'aria-hidden': 'true' }, ' · '), b] : [b])));
     stats.hidden = !bits.length;
   };
   grid.addEventListener('input', update);
+  grid.addEventListener('change', update);
   update();
   $('cardio-rows').append(wrap);
+}
+// { act, name, effort, minutes, distance } for one cardio row (name: what to show on the post)
+function readCardio(row) {
+  const f = Object.fromEntries([...row.querySelectorAll('[data-f]')].map((x) => [x.dataset.f, x.value.trim()]));
+  const name = f.act === 'other' ? (f.other || 'Cardio') : ACT[f.act].label.replace(/ \(.*\)$/, '');
+  return { act: f.act, name, effort: f.effort, minutes: f.minutes, distance: ACT[f.act].distance ? f.distance : '' };
 }
 function setMode(m) {
   mode = m;
@@ -171,7 +205,7 @@ const readRows = (box) => [...box.children].map((r) => Object.fromEntries([...r.
 function collectWorkouts() {
   const weights = mode === 'cardio' ? [] : readLifts();
   // Pace and calories are worked out now and saved with the post (your weight itself isn't saved).
-  const cardio = mode === 'weights' ? [] : readRows($('cardio-rows')).map((c) => {
+  const cardio = mode === 'weights' ? [] : [...$('cardio-rows').children].map(readCardio).filter((c) => c.minutes || c.distance).map((c) => {
     const st = cardioStats(c, myWeight);
     return { type: 'cardio', ...c, ...(st.pace ? { pace: st.pace } : {}), ...(st.cal ? { cal: st.cal } : {}) };
   });
@@ -284,9 +318,14 @@ function workoutList(all) {
   const weights = all.filter((w) => w.type !== 'cardio');
   const cardio = all.filter((w) => w.type === 'cardio');
   const list = (items, fmt) => el('ul', { class: 'workouts' }, items.map((w) => el('li', {}, el('span', {}, w.name), el('span', { class: 'muted' }, fmt(w)))));
-  const wFmt = (w) => [w.sets && w.reps ? `${w.sets} × ${w.reps}` : (w.sets ? w.sets + ' sets' : w.reps ? w.reps + ' reps' : ''),
-    Array.isArray(w.weights) && w.weights.length ? w.weights.join(' / ') : w.weight].filter(Boolean).join(' · ');
-  const cFmt = (c) => [c.minutes ? c.minutes + ' min' : '', c.distance, c.pace, c.cal ? `≈ ${c.cal} cal` : ''].filter(Boolean).join(' · ');
+  const wFmt = (w) => {
+    const per = setsOf(w);
+    // Reps differ between sets: "135×5 / 145×5 / 155×3". Otherwise "3 × 5 · 135 / 145 / 155".
+    if (per.length && new Set(per.map((p) => p.r)).size > 1) return `${per.length} sets · ` + per.map((p) => [p.w, p.r].filter(Boolean).join('×')).join(' / ');
+    return [w.sets && w.reps ? `${w.sets} × ${w.reps}` : (w.sets ? w.sets + ' sets' : w.reps ? w.reps + ' reps' : ''),
+      per.length ? per.map((p) => p.w).join(' / ') : w.weight].filter(Boolean).join(' · ');
+  };
+  const cFmt = (c) => [c.minutes ? c.minutes + ' min' : '', c.distance, c.pace, c.effort && c.effort !== 'moderate' ? c.effort : '', c.cal ? `≈ ${c.cal} cal` : ''].filter(Boolean).join(' · ');
   const totalCal = cardio.reduce((t, c) => t + (Number(c.cal) || 0), 0);
   return el('div', { style: 'flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:6px' },
     weights.length ? el('span', { style: 'font-weight:600' }, cardio.length ? 'Weights' : 'Workout') : null,

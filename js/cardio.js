@@ -47,9 +47,11 @@ const BIKE = [[9.9, 4.0], [10, 6.8], [12, 8.0], [14, 10.0], [16, 12.0], [20, 15.
 export function activityOf(name) {
   const n = String(name || '').toLowerCase();
   if (/walk|stroll/.test(n)) return 'walk';
-  if (/run|jog|treadmill|sprint|5k|10k|marathon/.test(n)) return 'run';
+  if (/treadmill/.test(n)) return 'treadmill';
+  if (/run|jog|sprint|5k|10k|marathon/.test(n)) return 'run';
   if (/hik/.test(n)) return 'hike';
-  if (/bik|cycl|spin|peloton|ride/.test(n)) return 'bike';
+  if (/spin|peloton|indoor|stationary/.test(n)) return 'spin';
+  if (/bik|cycl|ride/.test(n)) return 'bike';
   if (/swim|lap/.test(n)) return 'swim';
   if (/stair|step ?mill|climber/.test(n)) return 'stairs';
   if (/ellip|cross ?train|arc/.test(n)) return 'elliptical';
@@ -58,44 +60,63 @@ export function activityOf(name) {
   if (/hiit|circuit|tabata|boot ?camp|crossfit/.test(n)) return 'hiit';
   if (/danc|zumba/.test(n)) return 'dance';
   if (/yoga|stretch|pilates/.test(n)) return 'yoga';
-  if (/tennis|badminton|pickle/.test(n)) return 'racket';
-  if (/basket|soccer|football|volley/.test(n)) return 'sport';
+  if (/tennis|badminton|pickle|basket|soccer|football|volley/.test(n)) return 'sport';
   return 'other';
 }
 
-export function metFor(activity, mph) {
-  switch (activity) {
-    case 'run': return mph ? (mph < 4.2 ? interp(WALK, mph) : interp(RUN, mph)) : 9.8;
-    case 'walk': return mph ? interp(WALK, mph) : 3.5;
-    case 'hike': return 6.0;
-    case 'bike': return mph ? interp(BIKE, mph) : 7.0; // no distance: indoor/spin
-    case 'swim': return 6.0;
-    case 'stairs': return 9.0;
-    case 'elliptical': return 5.0;
-    case 'row': return 7.0;
-    case 'rope': return 11.0;
-    case 'hiit': return 8.0;
-    case 'dance': return 6.5;
-    case 'yoga': return 2.5;
-    case 'racket': return 7.0;
-    case 'sport': return 7.0;
-    default: return 6.0;
+// The activities you can pick, with MET values for Easy / Moderate / Hard effort
+// (Compendium of Physical Activities). Speed-based ones use the speed tables when a
+// distance is given, and the effort level when it isn't.
+export const ACTIVITIES = [
+  { key: 'run', label: 'Run', met: [8.3, 9.8, 11.8], distance: true },
+  { key: 'treadmill', label: 'Treadmill', met: [5.0, 9.0, 11.0], distance: true },
+  { key: 'walk', label: 'Walk', met: [3.0, 3.5, 5.0], distance: true },
+  { key: 'hike', label: 'Hike', met: [5.3, 6.0, 7.8], distance: true },
+  { key: 'stairs', label: 'Stairs / StairMaster', met: [6.0, 9.0, 11.0] },
+  { key: 'elliptical', label: 'Elliptical', met: [4.5, 5.0, 6.8] },
+  { key: 'bike', label: 'Bike (outdoor)', met: [5.8, 8.0, 10.0], distance: true },
+  { key: 'spin', label: 'Spin / indoor bike', met: [5.5, 6.8, 8.8] },
+  { key: 'row', label: 'Rowing machine', met: [4.8, 7.0, 8.5], distance: true },
+  { key: 'swim', label: 'Swim', met: [5.8, 7.0, 9.8], distance: true },
+  { key: 'rope', label: 'Jump rope', met: [8.8, 11.8, 12.3] },
+  { key: 'hiit', label: 'HIIT / circuit', met: [6.0, 8.0, 10.0] },
+  { key: 'dance', label: 'Dance / Zumba', met: [5.0, 6.5, 7.3] },
+  { key: 'yoga', label: 'Yoga / Pilates', met: [2.5, 3.0, 4.0] },
+  { key: 'sport', label: 'Sports (tennis, basketball…)', met: [5.0, 7.0, 8.0] },
+  { key: 'other', label: 'Other…', met: [4.0, 6.0, 8.0] }
+];
+export const ACT = Object.fromEntries(ACTIVITIES.map((a) => [a.key, a]));
+export const EFFORTS = [['easy', 'Easy'], ['moderate', 'Medium'], ['hard', 'Hard']];
+const EFFORT_I = { easy: 0, moderate: 1, hard: 2 };
+
+export function metFor(activity, mph, effort = 'moderate') {
+  const a = ACT[activity] || ACT[{ racket: 'sport' }[activity]] || ACT.other;
+  const fixed = a.met[EFFORT_I[effort] ?? 1];
+  if (!mph) return fixed;
+  switch (a.key) {
+    case 'run': case 'treadmill': return mph < 4.2 ? interp(WALK, mph) : interp(RUN, mph);
+    case 'walk': return mph < 5 ? interp(WALK, mph) : interp(RUN, mph);
+    case 'bike': return interp(BIKE, mph);
+    default: return fixed; // swim, row, hike: effort level is a better guide than speed
   }
 }
 
 // Everything for one cardio row. weight = { value, unit: 'lb' | 'kg' } (optional)
-export function cardioStats({ name, minutes, distance }, weight) {
+// Everything for one cardio row: { act, name, effort, minutes, distance }.
+// weight = { value, unit: 'lb' | 'kg' } (optional). Older posts only have a name.
+export function cardioStats({ act, name, effort, minutes, distance }, weight) {
   const min = parseMinutes(minutes);
+  const key = ACT[act] ? act : activityOf(name);
   const d = parseDistance(distance);
-  const act = activityOf(name);
   const out = {};
   if (min && d) {
     out.mph = d.mi / (min / 60);
-    if (act === 'bike') out.pace = d.unit === 'km' ? `${(d.km / (min / 60)).toFixed(1)} km/h` : `${out.mph.toFixed(1)} mph`;
-    else if (act === 'row') out.pace = `${mmss(min / (d.km * 2))} /500m`;
+    if (key === 'bike' || key === 'spin') out.pace = d.unit === 'km' ? `${(d.km / (min / 60)).toFixed(1)} km/h` : `${out.mph.toFixed(1)} mph`;
+    else if (key === 'row') out.pace = `${mmss(min / (d.km * 2))} /500m`;
+    else if (key === 'swim') out.pace = `${mmss(min / (d.km * 10))} /100m`;
     else out.pace = `${mmss(min / (d.unit === 'km' ? d.km : d.mi))} /${d.unit}`;
   }
   const kg = weight && weight.value > 0 ? (weight.unit === 'kg' ? weight.value : weight.value * 0.45359237) : null;
-  if (min && kg) out.cal = Math.round(metFor(act, out.mph) * kg * (min / 60));
+  if (min && kg) out.cal = Math.round(metFor(key, out.mph, effort || 'moderate') * kg * (min / 60));
   return out;
 }
