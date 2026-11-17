@@ -68,7 +68,7 @@ async function loadAll() {
   }
   if (en.error) throw en.error;
   for (const e of en.data || []) {
-    add(keyOf(new Date(e.created_at)), { type: 'entry', at: e.created_at, id: e.id, title: e.title || 'Untitled page', author: e.author, text: excerpt(e.body_html, 120), photo: firstPhotoPath(e.body_html, e.stickers) });
+    add(keyOf(new Date(e.created_at)), { type: 'entry', at: e.created_at, id: e.id, title: e.title || 'Untitled page', author: e.author, text: excerpt(e.body_html, 220), photo: firstPhotoPath(e.body_html, e.stickers) });
   }
   for (const g of gp.data || []) {
     add(keyOf(new Date(g.created_at)), { type: 'gympost', at: g.created_at, id: g.id, author: g.author, kind: g.kind, photo: g.photo_path,
