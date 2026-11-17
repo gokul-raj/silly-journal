@@ -1,6 +1,6 @@
-import { sb, requireUser, nameOf, chipClass, signedUrl, el, fmtDate, toast, friendlyError } from './sb.js';
+import { sb, requireUser, nameOf, el, toast, friendlyError } from './sb.js';
 import { mountLayout } from './layout.js';
-import { fitPage, cleanHtml, hydrateImages, stickerNode, readLayout } from './notebook.js';
+import { fitPage, buildPage } from './notebook.js';
 import { loadReactions, likeButton, commentThread, commentCountText } from './reactions.js';
 
 const ctx = await requireUser();
@@ -15,26 +15,10 @@ if (error || !e) {
 }
 document.title = 'Silly Journal — ' + (e.title || 'A page');
 
-const page = $('page');
-page.className = 'nb-page paper-' + e.paper;
-const lay = readLayout(e.stickers);
-page.style.minHeight = lay.h + 'px';
-
-$('meta').append(
-  el('span', {}, fmtDate(e.created_at, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }) + (e.place ? ' · ' + e.place : '')),
-  el('span', { class: chipClass(e.author) }, nameOf(e.author)));
-$('title').textContent = e.title;
-$('body').innerHTML = cleanHtml(e.body_html);
-$('body').querySelectorAll('input[type="checkbox"]').forEach((i) => { i.disabled = true; });
-await hydrateImages($('body'));
-
-if (e.drawing_path) {
-  const img = $('drawing');
-  img.src = await signedUrl('journal', e.drawing_path);
-  img.style.height = lay.h + 'px';
-  img.hidden = false;
-}
-for (const s of lay.stickers) $('sticker-layer').append(await stickerNode(s));
+// Same drawing routine as the journal feed, so the page always looks the way it was made.
+const page = await buildPage(e);
+page.id = 'page';
+$('page').replaceWith(page);
 fitPage($('frame'), page)();
 
 // Edit rights

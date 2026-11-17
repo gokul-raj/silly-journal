@@ -2,6 +2,7 @@ import { sb, requireUser, nameOf, chipClass, signedUrl, uploadFile, shrinkImage,
 import { mountLayout } from './layout.js';
 import { loadReactions, likeButton, commentThread, commentCountText } from './reactions.js';
 import { computeStreak, goalFor, nextMonday } from './streak.js';
+import { cardioStats } from './cardio.js';
 
 const ctx = await requireUser();
 mountLayout(ctx, 'fitness.html');
@@ -50,6 +51,13 @@ async function setGoal(delta) {
 $('dec').addEventListener('click', () => setGoal(-1));
 $('inc').addEventListener('click', () => setGoal(1));
 
+// My weight, for cardio calories (set in Settings). Null if not set or not set up yet.
+let myWeight = null;
+{
+  const { data, error } = await sb.from('profiles').select('body_weight, body_weight_unit').eq('id', ctx.me.id).maybeSingle();
+  if (!error && data && data.body_weight) myWeight = { value: Number(data.body_weight), unit: data.body_weight_unit || 'lb' };
+}
+
 // ───────── Composer ─────────
 let kind = 'gym';
 let gymPhoto = null, qPhoto = null;
@@ -69,23 +77,83 @@ function setKind(k) {
 }
 document.querySelectorAll('#kind button').forEach((b) => b.addEventListener('click', () => setKind(b.dataset.k)));
 
+// One exercise. With 2+ sets, each set gets its own weight box (blank = same as the set before).
+const MAX_SETS = 12;
 function addRow(v = {}) {
   const i = $('rows').children.length + 1;
   const mk = (name, label, extra = {}) => el('input', { class: 'input', 'aria-label': `${label} ${i}`, 'data-f': name, value: v[name] || '', ...extra });
-  const row = el('div', { class: 'grid4' },
-    mk('name', 'Exercise', { placeholder: i === 1 ? 'e.g. Squat' : '' }),
-    mk('sets', 'Sets', { inputmode: 'numeric' }), mk('reps', 'Reps', { inputmode: 'numeric' }), mk('weight', 'Weight'),
-    el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove exercise ' + i, onclick: () => { row.remove(); } }, '×'));
-  $('rows').append(row);
+  const sets = mk('sets', 'Sets', { inputmode: 'numeric' });
+  const weight = mk('weight', 'Weight');
+  const perSet = el('div', { class: 'per-set', hidden: true });
+  const wrap = el('div', { class: 'lift-row' });
+  wrap.append(
+    el('div', { class: 'grid4' },
+      mk('name', 'Exercise', { placeholder: i === 1 ? 'e.g. Squat' : '' }),
+      sets, mk('reps', 'Reps', { inputmode: 'numeric' }), weight,
+      el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove exercise ' + i, onclick: () => { wrap.remove(); } }, '×')),
+    perSet);
+  const prior = Array.isArray(v.weights) ? v.weights : [];
+  const draw = () => {
+    const n = Math.min(MAX_SETS, parseInt(sets.value, 10) || 0);
+    const old = [...perSet.querySelectorAll('input')].map((x) => x.value);
+    if (n < 2) { perSet.hidden = true; weight.hidden = false; perSet.replaceChildren(); return; }
+    perSet.hidden = false;
+    weight.hidden = true;
+    const boxes = Array.from({ length: n }, (_, k) => {
+      const val = old[k] ?? prior[k] ?? (k === 0 ? weight.value : '');
+      return el('label', { class: 'set-box' }, el('span', {}, 'Set ' + (k + 1)),
+        el('input', { class: 'input', 'data-set': String(k), value: val || '', 'aria-label': `Weight for set ${k + 1} of exercise ${i}` }));
+    });
+    perSet.replaceChildren(el('span', { class: 'small muted per-set-label' }, 'Weight each set'), ...boxes);
+    // A blank set shows the one before it as a hint, since that's what it'll save as.
+    const hint = () => { let last = ''; perSet.querySelectorAll('input').forEach((x) => { x.placeholder = last; last = x.value.trim() || last; }); };
+    perSet.querySelectorAll('input').forEach((x) => x.addEventListener('input', hint));
+    hint();
+  };
+  sets.addEventListener('input', draw);
+  draw();
+  $('rows').append(wrap);
 }
+function readLifts() {
+  return [...$('rows').children].map((r) => {
+    const f = Object.fromEntries([...r.querySelectorAll('[data-f]')].map((x) => [x.dataset.f, x.value.trim()]));
+    if (!f.name) return null;
+    const boxes = [...r.querySelectorAll('input[data-set]')];
+    if (boxes.length >= 2) {
+      let last = '';
+      const ws = boxes.map((x) => (last = x.value.trim() || last));
+      if (ws.some(Boolean)) {
+        if (new Set(ws).size > 1) { f.weights = ws; f.weight = ws.join(' / '); } else { f.weight = ws[0]; }
+      }
+    }
+    return f;
+  }).filter(Boolean);
+}
+
+// One cardio activity, with live pace and calories underneath.
 function addCardio(v = {}) {
   const i = $('cardio-rows').children.length + 1;
   const mk = (name, label, extra = {}) => el('input', { class: 'input', 'aria-label': `${label} ${i}`, 'data-f': name, value: v[name] || '', ...extra });
-  const row = el('div', { class: 'grid3' },
+  const stats = el('div', { class: 'cardio-stats small', 'aria-live': 'polite' });
+  const wrap = el('div', { class: 'cardio-row' });
+  const grid = el('div', { class: 'grid3' },
     mk('name', 'Cardio', { placeholder: i === 1 ? 'e.g. Run, Bike, Stairs' : '' }),
-    mk('minutes', 'Minutes', { inputmode: 'numeric' }), mk('distance', 'Distance', { placeholder: i === 1 ? 'e.g. 3 mi' : '' }),
-    el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove cardio ' + i, onclick: () => { row.remove(); } }, '×'));
-  $('cardio-rows').append(row);
+    mk('minutes', 'Minutes', { inputmode: 'decimal', placeholder: i === 1 ? 'e.g. 30' : '' }), mk('distance', 'Distance', { placeholder: i === 1 ? 'e.g. 3 mi' : '' }),
+    el('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Remove cardio ' + i, onclick: () => { wrap.remove(); } }, '×'));
+  wrap.append(grid, stats);
+  const update = () => {
+    const f = Object.fromEntries([...grid.querySelectorAll('[data-f]')].map((x) => [x.dataset.f, x.value.trim()]));
+    const st = cardioStats(f, myWeight);
+    const bits = [];
+    if (st.pace) bits.push(el('span', {}, el('strong', {}, 'Pace '), st.pace));
+    if (st.cal) bits.push(el('span', {}, el('strong', {}, '≈ ' + st.cal), ' cal'));
+    else if (f.minutes && !myWeight) bits.push(el('span', { class: 'muted' }, el('a', { href: 'settings.html' }, 'Add your weight in Settings'), ' to see calories'));
+    stats.replaceChildren(...bits.flatMap((b, k) => (k ? [el('span', { class: 'muted', 'aria-hidden': 'true' }, ' · '), b] : [b])));
+    stats.hidden = !bits.length;
+  };
+  grid.addEventListener('input', update);
+  update();
+  $('cardio-rows').append(wrap);
 }
 function setMode(m) {
   mode = m;
@@ -101,8 +169,12 @@ function resetRows(weights = [], cardio = []) {
 }
 const readRows = (box) => [...box.children].map((r) => Object.fromEntries([...r.querySelectorAll('[data-f]')].map((i) => [i.dataset.f, i.value.trim()]))).filter((w) => w.name);
 function collectWorkouts() {
-  const weights = mode === 'cardio' ? [] : readRows($('rows'));
-  const cardio = mode === 'weights' ? [] : readRows($('cardio-rows')).map((c) => ({ type: 'cardio', ...c }));
+  const weights = mode === 'cardio' ? [] : readLifts();
+  // Pace and calories are worked out now and saved with the post (your weight itself isn't saved).
+  const cardio = mode === 'weights' ? [] : readRows($('cardio-rows')).map((c) => {
+    const st = cardioStats(c, myWeight);
+    return { type: 'cardio', ...c, ...(st.pace ? { pace: st.pace } : {}), ...(st.cal ? { cal: st.cal } : {}) };
+  });
   return [...weights, ...cardio];
 }
 resetRows();
@@ -212,13 +284,16 @@ function workoutList(all) {
   const weights = all.filter((w) => w.type !== 'cardio');
   const cardio = all.filter((w) => w.type === 'cardio');
   const list = (items, fmt) => el('ul', { class: 'workouts' }, items.map((w) => el('li', {}, el('span', {}, w.name), el('span', { class: 'muted' }, fmt(w)))));
-  const wFmt = (w) => [w.sets && w.reps ? `${w.sets} × ${w.reps}` : (w.sets ? w.sets + ' sets' : w.reps ? w.reps + ' reps' : ''), w.weight].filter(Boolean).join(' · ');
-  const cFmt = (c) => [c.minutes ? c.minutes + ' min' : '', c.distance].filter(Boolean).join(' · ');
+  const wFmt = (w) => [w.sets && w.reps ? `${w.sets} × ${w.reps}` : (w.sets ? w.sets + ' sets' : w.reps ? w.reps + ' reps' : ''),
+    Array.isArray(w.weights) && w.weights.length ? w.weights.join(' / ') : w.weight].filter(Boolean).join(' · ');
+  const cFmt = (c) => [c.minutes ? c.minutes + ' min' : '', c.distance, c.pace, c.cal ? `≈ ${c.cal} cal` : ''].filter(Boolean).join(' · ');
+  const totalCal = cardio.reduce((t, c) => t + (Number(c.cal) || 0), 0);
   return el('div', { style: 'flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:6px' },
     weights.length ? el('span', { style: 'font-weight:600' }, cardio.length ? 'Weights' : 'Workout') : null,
     weights.length ? list(weights, wFmt) : null,
     cardio.length ? el('span', { style: 'font-weight:600;margin-top:' + (weights.length ? '8px' : '0') }, 'Cardio') : null,
-    cardio.length ? list(cardio, cFmt) : null);
+    cardio.length ? list(cardio, cFmt) : null,
+    cardio.length > 1 && totalCal ? el('span', { class: 'small muted' }, `≈ ${totalCal} cal of cardio in total`) : null);
 }
 async function postCard(p, likers, cmts) {
   const isGym = p.kind === 'gym';
@@ -257,5 +332,11 @@ await Promise.all([refreshStreak(), loadFeed()]);
 if (location.hash.startsWith('#post-')) {
   let target = document.getElementById(location.hash.slice(1));
   for (let i = 0; !target && !$('more').hidden && i < 20; i++) { await loadFeed(); target = document.getElementById(location.hash.slice(1)); }
-  if (target) { target.scrollIntoView({ block: 'start' }); target.classList.add('flash'); }
+  if (target) {
+    // From a comment notification: point at that comment under the post.
+    const cid = new URLSearchParams(location.search).get('comment');
+    const cm = cid && target.querySelector(`.comment[data-id="${CSS.escape(cid)}"]`);
+    (cm || target).scrollIntoView({ block: cm ? 'center' : 'start' });
+    (cm || target).classList.add('flash');
+  }
 }

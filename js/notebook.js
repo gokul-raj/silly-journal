@@ -1,6 +1,6 @@
 // Shared notebook-page helpers: sizing, safe HTML, photos and stickers.
 import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify@3/+esm';
-import { signedUrl } from './sb.js';
+import { signedUrl, el, fmtDate, nameOf, chipClass } from './sb.js';
 
 export const PAGE_W = 800;
 export const MIN_H = 1100;
@@ -65,20 +65,37 @@ export async function stickerSrc(src) {
   return '';
 }
 
+// Things that sit on top of the page, all positioned the same way (x, y, w, rot, z):
+//   sticker  { src: 'cat:…' | 'up:…' }
+//   photo    { src: 'ph:<path>' }
+//   text box { type: 'text', text, font: 'hand'|'serif'|'sans', size, color, bg }
+//   shape    { type: 'shape', shape: 'circle'|'rect', h, stroke, fill, sw }
+export const isPhoto = (item) => !!item.src && item.src.startsWith('ph:');
+export const kindOf = (item) => item.type === 'text' || item.type === 'shape' ? item.type : isPhoto(item) ? 'photo' : 'sticker';
+export const FONTS = { hand: 'var(--hand)', serif: 'var(--serif)', sans: 'var(--nav)' };
+export const NOTE_BG = { none: 'transparent', yellow: '#FFF3A8', pink: '#FFE0EC', white: '#FFFFFF' };
+
 export async function stickerNode(item) {
+  const kind = kindOf(item);
   const wrap = document.createElement('div');
-  wrap.className = 'nb-sticker' + (isPhoto(item) ? ' nb-photo' : '');
-  const img = document.createElement('img');
-  img.alt = '';
-  img.draggable = false;
-  img.src = await stickerSrc(item.src);
-  wrap.append(img);
+  wrap.className = 'nb-sticker nb-' + kind;
+  if (kind === 'text') {
+    const t = document.createElement('div');
+    t.className = 'nb-text-inner';
+    t.textContent = item.text || '';
+    wrap.append(t);
+  } else if (kind === 'shape') {
+    wrap.append(Object.assign(document.createElement('div'), { className: 'nb-shape-inner' }));
+  } else {
+    const img = document.createElement('img');
+    img.alt = '';
+    img.draggable = false;
+    img.src = await stickerSrc(item.src);
+    wrap.append(img);
+  }
   placeSticker(wrap, item);
   return wrap;
 }
-
-// Photos live on the page like stickers: { src: 'ph:<path>', x, y, w, rot, z }.
-export const isPhoto = (item) => item.src.startsWith('ph:');
 
 export function placeSticker(node, it) {
   node.style.left = it.x + 'px';
@@ -86,6 +103,68 @@ export function placeSticker(node, it) {
   node.style.width = it.w + 'px';
   node.style.transform = `rotate(${it.rot || 0}deg)`;
   node.style.zIndex = String(10 + (it.z || 0));
+  const kind = kindOf(it);
+  if (kind === 'shape') {
+    node.style.height = (it.h || it.w) + 'px';
+    const s = node.querySelector('.nb-shape-inner');
+    s.style.border = `${it.sw || 3}px solid ${it.stroke || '#ff4f8d'}`;
+    s.style.background = it.fill && it.fill !== 'none' ? it.fill : 'transparent';
+    s.style.borderRadius = it.shape === 'circle' ? '50%' : '3px';
+  } else if (kind === 'text') {
+    const t = node.querySelector('.nb-text-inner');
+    t.style.fontFamily = FONTS[it.font] || FONTS.hand;
+    t.style.fontSize = (it.size || 28) + 'px';
+    t.style.color = it.color || '#121417';
+    t.style.background = NOTE_BG[it.bg] || NOTE_BG.none;
+    node.classList.toggle('has-bg', !!it.bg && it.bg !== 'none');
+  }
+}
+
+// What gets saved for each item (only the fields that kind uses).
+export function itemForSave(it) {
+  const base = { id: it.id, x: Math.round(it.x), y: Math.round(it.y), w: Math.round(it.w), rot: it.rot || 0, z: it.z || 0 };
+  const kind = kindOf(it);
+  if (kind === 'text') return { ...base, type: 'text', text: String(it.text || '').slice(0, 2000), font: it.font || 'hand', size: it.size || 28, color: it.color || '#121417', bg: it.bg || 'none' };
+  if (kind === 'shape') return { ...base, type: 'shape', shape: it.shape === 'rect' ? 'rect' : 'circle', h: Math.round(it.h || it.w), stroke: it.stroke || '#ff4f8d', fill: it.fill || 'none', sw: it.sw || 3 };
+  return { ...base, src: it.src };
+}
+
+// Draw a whole saved page (text, drawing, stickers, photos, text boxes, shapes) exactly as
+// it was laid out in the editor. Used by the reading view and the journal feed preview.
+export async function buildPage(e) {
+  const lay = readLayout(e.stickers);
+  const meta = el('div', { class: 'nb-date' },
+    el('span', {}, fmtDate(e.created_at, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }) + (e.place ? ' · ' + e.place : '')),
+    el('span', { class: chipClass(e.author) }, nameOf(e.author)));
+  const title = el('h1', { class: 'nb-title' }, e.title || '');
+  const body = el('div', { class: 'nb-body', style: 'min-height:0', html: cleanHtml(e.body_html) });
+  body.querySelectorAll('input[type="checkbox"]').forEach((i) => { i.disabled = true; });
+  const layer = el('div', { class: 'sticker-layer' });
+  const page = el('div', { class: 'nb-page paper-' + (e.paper || 'ruled'), style: `min-height:${lay.h}px` },
+    el('div', { class: 'nb-content' }, meta, title, body), layer);
+  const jobs = [hydrateImages(body)];
+  if (e.drawing_path) {
+    const img = el('img', { class: 'nb-drawing', alt: '', style: `height:${lay.h}px` });
+    page.insertBefore(img, layer);
+    jobs.push(signedUrl('journal', e.drawing_path).then((u) => { img.src = u; }));
+  }
+  jobs.push(Promise.all(lay.stickers.map(stickerNode)).then((nodes) => layer.append(...nodes)));
+  await Promise.all(jobs);
+  return page;
+}
+
+// How far down the page anything actually goes (text, stickers, photos…), in page pixels.
+export function contentBottom(page) {
+  const top = page.getBoundingClientRect().top;
+  const s = scaleOf(page) || 1;
+  let max = 0;
+  const body = page.querySelector('.nb-body');
+  const last = body && [...body.querySelectorAll('*')].reverse().find((n) => n.textContent.trim() || n.tagName === 'IMG' || n.tagName === 'HR');
+  for (const n of [page.querySelector('.nb-title'), last, ...page.querySelectorAll('.nb-sticker')]) {
+    if (!n) continue;
+    max = Math.max(max, (n.getBoundingClientRect().bottom - top) / s);
+  }
+  return Math.ceil(max);
 }
 
 // A one-line preview of a page. Each paragraph, line break, heading or list item reads as

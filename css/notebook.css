@@ -30,3 +30,15 @@
 .nb-sticker img { display: block; width: 100%; height: auto; pointer-events: none; }
 .nb-photo img { background: #fff; padding: 8px 8px 26px; box-shadow: 0 2px 8px rgba(18,20,23,.18); }
 .nb-body .photo-space { display: block; }
+
+/* Text boxes and shapes on the page */
+.nb-text-inner { padding: 4px 8px; line-height: 1.25; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.25em; outline: none; }
+.nb-text.has-bg .nb-text-inner { padding: 12px 14px; box-shadow: 0 2px 6px rgba(18,20,23,.15); }
+.nb-shape-inner { width: 100%; height: 100%; box-sizing: border-box; }
+.sticker-layer { position: absolute; inset: 0; pointer-events: none; }
+
+/* Journal feed: a scaled-down copy of the real page */
+.nb-mini { position: relative; display: block; overflow: hidden; background: var(--paper); text-decoration: none; color: inherit; }
+.nb-mini .nb-page { position: absolute; left: 0; top: 0; box-shadow: none; pointer-events: none; }
+.nb-mini .more { position: absolute; left: 0; right: 0; bottom: 0; height: 96px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; background: linear-gradient(rgba(255,253,248,0), var(--paper) 70%); font-family: var(--nav); font-size: 14px; font-weight: 600; color: #9C2F57; }
+.nb-mini:focus-visible { outline-offset: -3px; }

@@ -30,7 +30,17 @@
   .stk-item > .stk-add { width: 100%; }
   .stk-del { position: absolute; top: 2px; right: 2px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--ink); color: #fff; font-size: 13px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: .85; }
   .stk-del:hover { opacity: 1; background: var(--err); }
-  .stk-tools { position: absolute; z-index: 999; display: flex; gap: 2px; background: var(--ink); border-radius: 8px; padding: 2px; }
+  .stk-tools { position: absolute; z-index: 999; display: flex; flex-wrap: wrap; max-width: 380px; gap: 2px; background: var(--ink); border-radius: 8px; padding: 2px; transform: translateY(-100%); }
+  .stk-tools .stk-colors { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 6px; width: 100%; border-top: 1px solid rgba(255,255,255,.15); }
+  .stk-tools .dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); padding: 0; }
+  .stk-tools .dot[aria-pressed="true"] { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
+  #sticker-layer .nb-text { cursor: grab; }
+  #sticker-layer .nb-text .nb-text-inner:empty::before { content: 'Type here…'; color: #9AA0A6; }
+  #sticker-layer .nb-text.editing { cursor: text; }
+  #sticker-layer .nb-text.editing .nb-text-inner { cursor: text; user-select: text; -webkit-user-select: text; }
+  #sticker-layer .nb-text:not(.editing) .nb-text-inner { user-select: none; -webkit-user-select: none; }
+  .nb-page.photo-over { outline: 4px dashed var(--accent); outline-offset: -4px; }
+  .nb-page.photo-over::after { content: 'Drop to add your photo here'; position: absolute; left: 50%; top: 40px; transform: translateX(-50%); z-index: 1000; background: var(--accent); color: #fff; font-family: var(--nav); font-weight: 700; padding: 10px 16px; border-radius: 6px; pointer-events: none; }
   .stk-tools button { width: 40px; height: 40px; border: 0; background: transparent; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .place-input { border: 0; background: transparent; font-family: var(--hand); font-size: 26px; color: var(--accent); width: 220px; padding: 0; }
   .place-input::placeholder { color: #E9A3BD; }
@@ -92,6 +102,9 @@
           <button class="icon-btn" id="checklist" aria-label="Checklist"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="6" rx="1"/><path d="M4.5 7l1 1 2-2"/><rect x="3" y="14" width="6" height="6" rx="1"/><path d="M12 7h9M12 17h9"/></svg></button>
           <span class="sep" aria-hidden="true"></span>
           <label class="icon-btn" style="cursor:pointer" title="Insert photo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-7 7"/></svg><span class="sr-only">Insert photo</span><input type="file" id="photo" accept="image/*" class="sr-only"></label>
+          <button class="icon-btn" type="button" id="add-text" aria-label="Add a text box" title="Text box (drag anywhere)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1" stroke-dasharray="3 2"/><path d="M8 9h8M12 9v7"/></svg></button>
+          <button class="icon-btn" type="button" id="add-circle" aria-label="Add a circle" title="Circle"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg></button>
+          <button class="icon-btn" type="button" id="add-rect" aria-label="Add a rectangle" title="Rectangle"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
           <button class="icon-btn" data-cmd="insertHorizontalRule" aria-label="Insert divider"><svg viewBox="0 0 24 24"><path d="M3 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg></button>
         </div>
 
@@ -138,7 +151,7 @@
             <button type="button" data-tab="ours" aria-pressed="false" style="flex:1">Ours</button>
           </div>
           <div class="stk-grid" id="stk-grid"></div>
-          <p class="small muted" style="margin:0">Tap a sticker to add it, or drag it onto the page. Tap a sticker or photo on the page to move it, drag the blue corner to resize, or use the bar to turn or remove it. The ✕ on a sticker you uploaded removes it from this list.</p>
+          <p class="small muted" style="margin:0">Tap a sticker to add it, or drag it onto the page. Tap a sticker, photo, text box or shape on the page to move it, drag the blue corner to resize, or use the bar to turn, recolour or remove it. Double-click a text box to type in it. You can also drag photos straight from your computer onto the page. The ✕ on a sticker you uploaded removes it from this list.</p>
         </div>
       </aside>
     </div>

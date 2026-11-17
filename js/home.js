@@ -1,6 +1,6 @@
-import { sb, requireUser, nameOf, chipClass, signedUrl, el, fmtDate, toast, friendlyError } from './sb.js';
+import { sb, requireUser, nameOf, el, toast, friendlyError } from './sb.js';
 import { mountLayout, coupleNames, LOGO } from './layout.js';
-import { excerpt, firstPhotoPath } from './notebook.js';
+import { buildPage, contentBottom, PAGE_W } from './notebook.js';
 import { loadReactions, likeButton, commentThread, commentCountText } from './reactions.js';
 import { computeStreak } from './streak.js';
 import { LOCATIONS } from './config.js';
@@ -39,20 +39,34 @@ async function loadFeed() {
   for (const e of rows) $('feed').append(await card(e, likes.get(e.id), comments.get(e.id)));
 }
 
+// The page itself, scaled to the card: same text, photos, stickers and drawings, in the
+// same places as in the editor. Long pages are cut off with "Keep reading".
+const MAX_PREVIEW = 1000; // page pixels
+async function miniPage(e, href) {
+  const page = await buildPage(e);
+  const more = el('span', { class: 'more', hidden: true }, 'Keep reading →');
+  const box = el('a', { class: 'nb-mini', href, 'aria-label': (e.title || 'Untitled page') + ' — open page' }, page, more);
+  const fit = () => {
+    const w = box.clientWidth;
+    if (!w) return;
+    const s = w / PAGE_W;
+    page.style.transform = `scale(${s})`;
+    const need = contentBottom(page) + 40;
+    const shown = Math.max(240, Math.min(need, MAX_PREVIEW));
+    box.style.height = Math.round(shown * s) + 'px';
+    more.hidden = need <= MAX_PREVIEW;
+  };
+  new ResizeObserver(fit).observe(box);
+  page.querySelectorAll('img').forEach((img) => img.addEventListener('load', fit));
+  return box;
+}
+
 async function card(e, likers, cmts) {
-  const photo = firstPhotoPath(e.body_html, e.stickers);
   const href = 'entry.html?id=' + e.id;
   const shared = e.access === 'both';
   const last = cmts[cmts.length - 1];
-  const c = el('article', { class: 'entry-card' },
-    photo ? el('a', { href, tabindex: '-1', 'aria-hidden': 'true' }, el('img', { class: 'photo', src: await signedUrl('journal', photo), alt: '', loading: 'lazy' })) : null,
-    el('div', { class: 'paper', style: 'padding-top:16px' },
-      el('div', { class: 'meta' },
-        el('span', {}, fmtDate(e.created_at)),
-        el('span', { class: chipClass(e.author) }, nameOf(e.author)),
-        e.place ? el('span', {}, e.place) : null),
-      el('h2', {}, el('a', { href }, e.title || 'Untitled page')),
-      el('p', { style: 'margin:0;color:var(--soft)' }, excerpt(e.body_html) || ' ')),
+  const c = el('article', { class: 'entry-card', id: 'entry-' + e.id, 'data-id': e.id },
+    await miniPage(e, href),
     el('div', { class: 'react-bar' },
       likeButton('entry', e.id, likers, ctx.me.id),
       el('button', { type: 'button', class: 'like-btn comment-toggle', 'aria-expanded': 'false', 'aria-controls': 'cm-' + e.id, html: BUBBLE + '<span></span>' }),
@@ -64,7 +78,11 @@ async function card(e, likers, cmts) {
   countLabel.textContent = commentCountText(cmts.length);
   const preview = c.querySelector('.last-comment');
   let thread = null;
-  toggle.addEventListener('click', () => {
+  c.openComments = (focus = true) => {
+    if (toggle.getAttribute('aria-expanded') !== 'true') toggle.dispatchEvent(new CustomEvent('click', { detail: { focus } }));
+    return thread;
+  };
+  toggle.addEventListener('click', (ev) => {
     if (!thread) {
       thread = commentThread('entry', e.id, cmts, { meId: ctx.me.id, onCount: (n) => { countLabel.textContent = commentCountText(n); } });
       thread.id = 'cm-' + e.id;
@@ -76,7 +94,7 @@ async function card(e, likers, cmts) {
     thread.hidden = !open;
     toggle.setAttribute('aria-expanded', String(open));
     if (preview) preview.hidden = open;
-    if (open) thread.querySelector('input').focus();
+    if (open && !(ev.detail && ev.detail.focus === false)) thread.querySelector('input').focus();
   });
   c.querySelector('.access span').textContent = shared ? 'Both can edit' : 'Read-only · ' + nameOf(e.author) + ' edits';
   return c;
@@ -84,6 +102,25 @@ async function card(e, likers, cmts) {
 
 $('more').addEventListener('click', loadFeed);
 await loadFeed();
+
+// Opened from a notification: show that page's comments right here, under the post.
+const want = new URLSearchParams(location.search);
+if (want.get('entry')) {
+  const cardId = 'entry-' + want.get('entry');
+  for (let i = 0; !document.getElementById(cardId) && !$('more').hidden && i < 30; i++) await loadFeed();
+  const target = document.getElementById(cardId);
+  if (target) {
+    const thread = target.openComments(false);
+    const cm = want.get('comment') && thread && thread.querySelector(`.comment[data-id="${CSS.escape(want.get('comment'))}"]`);
+    const spot = cm || target;
+    // Pages above it keep growing as their photos load, so re-aim a couple of times.
+    const aim = () => spot.scrollIntoView({ block: cm ? 'center' : 'start' });
+    aim(); setTimeout(aim, 400); setTimeout(aim, 1200);
+    spot.classList.add('flash');
+  } else {
+    toast('That page couldn’t be found in the journal.');
+  }
+}
 
 // Counts in the hero
 Promise.all([

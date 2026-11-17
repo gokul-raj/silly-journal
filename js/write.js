@@ -1,6 +1,6 @@
 import { sb, requireUser, nameOf, chipClass, uploadFile, shrinkImage, signedUrl, el, toast, friendlyError, fmtDate } from './sb.js';
 import { mountLayout } from './layout.js';
-import { PAGE_W, MIN_H, BUILTIN_STICKERS, fitPage, scaleOf, cleanHtml, hydrateImages, dehydrate, stickerNode, placeSticker, readLayout, isPhoto } from './notebook.js';
+import { PAGE_W, MIN_H, BUILTIN_STICKERS, fitPage, scaleOf, cleanHtml, hydrateImages, dehydrate, stickerNode, placeSticker, readLayout, isPhoto, kindOf, itemForSave } from './notebook.js';
 
 const ctx = await requireUser();
 mountLayout(ctx, '');
@@ -15,7 +15,7 @@ let entry = null;          // existing row when editing
 let access = 'both';
 let paper = 'ruled';
 let pageH = MIN_H;
-let stickers = [];         // { id, src, x, y, w, rot, z }
+let stickers = [];         // stickers, photos, text boxes and shapes (see notebook.js)
 let dirty = false;
 let drawDirty = false;
 let hasDrawing = false;
@@ -115,6 +115,8 @@ titleEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventD
 // Paste as plain text so pages stay tidy.
 for (const n of [body, titleEl]) {
   n.addEventListener('paste', (e) => {
+    const pics = e.clipboardData ? [...e.clipboardData.files].filter((f) => f.type.startsWith('image/')) : [];
+    if (pics.length) { e.preventDefault(); addPhotoFiles(pics); return; }
     const text = e.clipboardData && e.clipboardData.getData('text/plain');
     if (text == null) return;
     e.preventDefault();
@@ -122,22 +124,26 @@ for (const n of [body, titleEl]) {
   });
 }
 
-$('photo').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  e.target.value = '';
-  if (!file) return;
-  $('status').textContent = 'Uploading photo…';
+// Photos from the button, dragged in from your computer, or pasted. Each lands where it was
+// dropped (or in the middle of what you can see) as a movable photo.
+async function addPhotoFiles(files, at) {
+  const list = [...files].filter((f) => f.type.startsWith('image/'));
+  if (!list.length) return toast('Only pictures can go on the page.');
+  const c = at || visibleCenter();
+  $('status').textContent = `Uploading ${list.length > 1 ? list.length + ' photos' : 'photo'}…`;
   try {
-    const small = await shrinkImage(file);
-    const path = await uploadFile('journal', ctx.me.id + '/photos', small);
-    const c = visibleCenter();
-    addSticker('ph:' + path, c.x, c.y, { w: 320, rot: -1 });
-    $('status').textContent = 'Photo added. Drag it where you want it.';
+    for (const [i, file] of list.entries()) {
+      const small = await shrinkImage(file);
+      const path = await uploadFile('journal', ctx.me.id + '/photos', small);
+      addSticker('ph:' + path, c.x + i * 36, c.y + i * 36, { w: 320, rot: -1 });
+    }
+    $('status').textContent = list.length > 1 ? 'Photos added. Drag them where you want them.' : 'Photo added. Drag it where you want it.';
   } catch (ex) {
     $('status').textContent = '';
     toast(friendlyError(ex));
   }
-});
+}
+$('photo').addEventListener('change', (e) => { const files = [...e.target.files]; e.target.value = ''; if (files.length) addPhotoFiles(files); });
 
 // ───────────────── Drawing ─────────────────
 const DPR = 2;
@@ -278,29 +284,93 @@ $('longer').addEventListener('click', () => { pageH += 400; sizeCanvas(pageH, tr
 
 // ───────────────── Stickers ─────────────────
 let selected = null;
-const tools = el('div', { class: 'stk-tools', hidden: true });
-const TOOL_BTNS = [['↺', 'Turn left', (s) => { s.rot = (s.rot || 0) - 15; }], ['↻', 'Turn right', (s) => { s.rot = (s.rot || 0) + 15; }],
-  ['−', 'Smaller', (s) => { s.w = Math.max(40, s.w - 20); }], ['+', 'Bigger', (s) => { s.w = Math.min(maxW(s), s.w + 20); }],
-  ['⤒', 'Bring to front', (s) => { s.z = Math.max(0, ...stickers.map((o) => o.z || 0)) + 1; }],
-  ['✕', 'Remove from page', (s) => { stickers = stickers.filter((o) => o !== s); }]];
-const maxW = (s) => (isPhoto(s) ? PAGE_W - 40 : 500);
-for (const [label, aria, fn] of TOOL_BTNS) {
-  const b = el('button', { type: 'button', 'aria-label': aria, title: aria }, label);
-  b.addEventListener('click', () => { if (!selected) return; fn(selected); markDirty(); renderStickers(); });
-  tools.append(b);
+let editing = null; // the text box being typed in
+const tools = el('div', { class: 'stk-tools', hidden: true, role: 'toolbar', 'aria-label': 'Selected item' });
+const ITEM_COLORS = ['#121417', '#ff4f8d', '#E0702E', '#F2B705', '#0F8A6A', '#2F6FB2', '#8E5BD8', '#FFFFFF'];
+const FONT_ORDER = ['hand', 'serif', 'sans'];
+const FONT_LABEL = { hand: 'Handwriting', serif: 'Serif', sans: 'Plain' };
+const BG_ORDER = ['none', 'yellow', 'pink', 'white'];
+const maxW = (s) => (isPhoto(s) || kindOf(s) === 'shape' || kindOf(s) === 'text' ? PAGE_W - 20 : 500);
+const front = (s) => { s.z = Math.max(0, ...stickers.map((o) => o.z || 0)) + 1; };
+const cycle = (list, v) => list[(list.indexOf(v) + 1) % list.length];
+
+function toolButtons(s) {
+  const k = kindOf(s);
+  const b = (label, aria, fn, extra = {}) => ({ label, aria, fn, ...extra });
+  const out = [];
+  if (k === 'text') {
+    out.push(b('✎', 'Edit text', null, { edit: true }));
+    out.push(b('Aa', 'Font: ' + FONT_LABEL[s.font || 'hand'] + ' (tap to change)', (x) => { x.font = cycle(FONT_ORDER, x.font || 'hand'); }, { style: 'font-family:' + ({ hand: 'Caveat, cursive', serif: 'Newsreader, Georgia, serif', sans: 'Helvetica, Arial, sans-serif' })[s.font || 'hand'] }));
+    out.push(b('A−', 'Smaller text', (x) => { x.size = Math.max(12, (x.size || 28) - 4); }));
+    out.push(b('A+', 'Bigger text', (x) => { x.size = Math.min(120, (x.size || 28) + 4); }));
+    out.push(b('▤', 'Note background: ' + (s.bg || 'none') + ' (tap to change)', (x) => { x.bg = cycle(BG_ORDER, x.bg || 'none'); }));
+  } else if (k === 'shape') {
+    out.push(b('◐', s.fill && s.fill !== 'none' ? 'Fill: on (tap to turn off)' : 'Fill: off (tap to fill)', (x) => { x.fill = x.fill && x.fill !== 'none' ? 'none' : (x.stroke || '#ff4f8d') + '33'; }));
+    out.push(b('━', 'Line thickness (tap to change)', (x) => { x.sw = cycle([2, 4, 7, 12], x.sw || 3); }));
+  } else {
+    out.push(b('−', 'Smaller', (x) => { x.w = Math.max(40, x.w - 20); }), b('+', 'Bigger', (x) => { x.w = Math.min(maxW(x), x.w + 20); }));
+  }
+  out.push(b('↺', 'Turn left', (x) => { x.rot = (x.rot || 0) - 15; }), b('↻', 'Turn right', (x) => { x.rot = (x.rot || 0) + 15; }));
+  out.push(b('⤒', 'Bring to front', front));
+  out.push(b('✕', 'Remove from page', (x) => { stickers = stickers.filter((o) => o !== x); }));
+  return out;
+}
+function renderTools() {
+  tools.replaceChildren();
+  if (!selected) return;
+  for (const t of toolButtons(selected)) {
+    const btn = el('button', { type: 'button', 'aria-label': t.aria, title: t.aria, style: t.style || null }, t.label);
+    btn.addEventListener('pointerdown', (e) => e.preventDefault()); // keep typing focus
+    btn.addEventListener('click', () => {
+      if (!selected) return;
+      if (t.edit) { const n = layer.querySelector(`.nb-sticker[data-id="${selected.id}"]`); if (n) startEdit(selected, n); return; }
+      t.fn(selected); markDirty(); restyle(selected);
+    });
+    tools.append(btn);
+  }
+  const k = kindOf(selected);
+  if (k === 'text' || k === 'shape') {
+    const sw = el('div', { class: 'stk-colors', role: 'group', 'aria-label': k === 'text' ? 'Text colour' : 'Line colour' });
+    for (const c of ITEM_COLORS) {
+      const cur = k === 'text' ? (selected.color || '#121417') : (selected.stroke || '#ff4f8d');
+      const btn = el('button', { type: 'button', class: 'dot', 'aria-label': 'Colour ' + c, 'aria-pressed': String(cur.toLowerCase() === c.toLowerCase()), style: 'background:' + c });
+      btn.addEventListener('pointerdown', (e) => e.preventDefault());
+      btn.addEventListener('click', () => {
+        if (k === 'text') selected.color = c;
+        else { const filled = selected.fill && selected.fill !== 'none'; selected.stroke = c; if (filled) selected.fill = c + '33'; }
+        markDirty(); restyle(selected);
+      });
+      sw.append(btn);
+    }
+    tools.append(sw);
+  }
+}
+// Re-apply an item's look after a tool change (without rebuilding the page).
+function restyle(s) {
+  if (!stickers.includes(s)) { renderStickers(); return; }
+  const n = layer.querySelector(`.nb-sticker[data-id="${s.id}"]`);
+  if (n) placeSticker(n, s);
+  renderTools();
+  placeTools();
 }
 layer.append(tools);
 
 async function renderStickers() {
   [...layer.querySelectorAll('.nb-sticker')].forEach((n) => n.remove());
   if (selected && !stickers.includes(selected)) selected = null;
+  renderTools();
   for (const s of stickers) {
     const n = await stickerNode(s);
     n.dataset.id = s.id;
     n.classList.toggle('sel', s === selected);
     n.tabIndex = 0;
     n.setAttribute('role', 'button');
-    n.setAttribute('aria-label', (isPhoto(s) ? 'Photo' : 'Sticker') + '. Drag to move.');
+    const kind = kindOf(s);
+    n.setAttribute('aria-label', ({ photo: 'Photo', sticker: 'Sticker', text: 'Text box', shape: s.shape === 'rect' ? 'Rectangle' : 'Circle' })[kind] + '. Drag to move.' + (kind === 'text' ? ' Double-click or press Enter to type.' : ''));
+    if (kind === 'text') {
+      n.addEventListener('dblclick', () => startEdit(s, n));
+      n.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !n.classList.contains('editing')) { e.preventDefault(); startEdit(s, n); } });
+    }
     n.addEventListener('pointerdown', (e) => startMove(e, s, n));
     const handle = el('span', { class: 'nb-resize', 'aria-hidden': 'true', title: 'Drag to resize' });
     handle.addEventListener('pointerdown', (e) => startResize(e, s, n, handle));
@@ -312,16 +382,50 @@ async function renderStickers() {
 function placeTools() {
   tools.hidden = !selected;
   if (!selected) return;
-  tools.style.left = Math.max(0, selected.x) + 'px';
-  tools.style.top = Math.max(0, selected.y - 54) + 'px';
+  tools.style.left = Math.min(Math.max(0, selected.x), PAGE_W - Math.min(PAGE_W, tools.offsetWidth || 300)) + 'px';
+  tools.style.top = Math.max(0, selected.y - 12) + 'px';
 }
 function selectSticker(s) {
+  const changed = s !== selected;
   selected = s;
-  layer.querySelectorAll('.nb-sticker').forEach((n) => n.classList.toggle('sel', s && n.dataset.id === s.id));
+  layer.querySelectorAll('.nb-sticker').forEach((n) => n.classList.toggle('sel', !!s && n.dataset.id === s.id));
+  if (changed) renderTools();
   placeTools();
 }
+
+// Typing in a text box: double-click it (or tap it again once selected).
+function startEdit(s, n) {
+  const inner = n.querySelector('.nb-text-inner');
+  if (!inner || editing === s) return;
+  selectSticker(s);
+  editing = s;
+  n.classList.add('editing');
+  try { inner.contentEditable = 'plaintext-only'; } catch (e) { inner.contentEditable = 'true'; }
+  if (inner.contentEditable !== 'plaintext-only') inner.contentEditable = 'true';
+  inner.focus();
+  const r = document.createRange(); r.selectNodeContents(inner); r.collapse(false);
+  const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  const onInput = () => { s.text = inner.innerText.replace(/\n$/, ''); markDirty(); };
+  const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); inner.blur(); } e.stopPropagation(); };
+  const onPaste = (e) => { const t = e.clipboardData && e.clipboardData.getData('text/plain'); if (t == null) return; e.preventDefault(); document.execCommand('insertText', false, t); };
+  const done = () => {
+    inner.removeEventListener('input', onInput); inner.removeEventListener('keydown', onKey); inner.removeEventListener('paste', onPaste);
+    inner.contentEditable = 'false';
+    n.classList.remove('editing');
+    editing = null;
+    s.text = inner.innerText.replace(/\n$/, '');
+    if (!s.text.trim()) { stickers = stickers.filter((o) => o !== s); if (selected === s) selected = null; markDirty(); renderStickers(); }
+  };
+  inner.addEventListener('input', onInput);
+  inner.addEventListener('keydown', onKey);
+  inner.addEventListener('paste', onPaste);
+  inner.addEventListener('blur', done, { once: true });
+}
 function startMove(e, s, n) {
+  if (n.classList.contains('editing') && e.target.closest('.nb-text-inner')) return; // let them select text
   e.preventDefault();
+  const wasSelected = selected === s;
+  if (editing && editing !== s) document.activeElement.blur();
   selectSticker(s);
   const sc = scaleOf(page);
   const start = { x: e.clientX, y: e.clientY, sx: s.x, sy: s.y };
@@ -334,7 +438,12 @@ function startMove(e, s, n) {
     placeSticker(n, s);
     placeTools();
   };
-  const up = () => { n.removeEventListener('pointermove', move); n.removeEventListener('pointerup', up); if (s.x !== start.sx || s.y !== start.sy) markDirty(); };
+  const up = () => {
+    n.removeEventListener('pointermove', move); n.removeEventListener('pointerup', up);
+    const moved = s.x !== start.sx || s.y !== start.sy;
+    if (moved) markDirty();
+    else if (wasSelected && kindOf(s) === 'text') startEdit(s, n); // second tap on a text box: type
+  };
   n.addEventListener('pointermove', move);
   n.addEventListener('pointerup', up);
 }
@@ -343,25 +452,57 @@ function startResize(e, s, n, handle) {
   e.preventDefault();
   e.stopPropagation();
   const sc = scaleOf(page);
-  const start = { x: e.clientX, y: e.clientY, w: s.w };
+  const start = { x: e.clientX, y: e.clientY, w: s.w, h: s.h || s.w };
   handle.setPointerCapture(e.pointerId);
+  const kind = kindOf(s);
   const move = (ev) => {
-    const d = ((ev.clientX - start.x) + (ev.clientY - start.y)) / 2 / sc;
-    s.w = Math.round(Math.min(maxW(s), Math.max(40, start.w + d)));
+    const dx = (ev.clientX - start.x) / sc, dy = (ev.clientY - start.y) / sc;
+    if (kind === 'shape') { // shapes stretch freely: wide, tall, round or oval
+      s.w = Math.round(Math.min(maxW(s), Math.max(16, start.w + dx)));
+      s.h = Math.round(Math.min(pageH, Math.max(16, start.h + dy)));
+    } else if (kind === 'text') { // text boxes: drag sideways to make the box wider or narrower
+      s.w = Math.round(Math.min(maxW(s), Math.max(60, start.w + dx)));
+    } else {
+      s.w = Math.round(Math.min(maxW(s), Math.max(40, start.w + (dx + dy) / 2)));
+    }
     placeSticker(n, s);
   };
-  const up = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up); if (s.w !== start.w) markDirty(); placeTools(); };
+  const up = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up); if (s.w !== start.w || (s.h || s.w) !== start.h) markDirty(); placeTools(); };
   handle.addEventListener('pointermove', move);
   handle.addEventListener('pointerup', up);
   handle.addEventListener('pointercancel', up);
 }
 page.addEventListener('pointerdown', (e) => { if (!e.target.closest('.nb-sticker') && !e.target.closest('.stk-tools')) selectSticker(null); });
 document.addEventListener('keydown', (e) => {
-  if (!selected || !['Delete', 'Backspace'].includes(e.key)) return;
+  if (!selected || !['Delete', 'Backspace'].includes(e.key) || editing) return;
   if (document.activeElement && document.activeElement.closest('.nb-sticker')) {
     stickers = stickers.filter((o) => o !== selected); selected = null; markDirty(); renderStickers();
   }
 });
+
+// New text box or shape in the middle of what you can see.
+function addText() {
+  const c = visibleCenter();
+  const s = { id: crypto.randomUUID(), type: 'text', text: '', font: 'hand', size: 32, color: '#121417', bg: 'none', w: 260, rot: 0, x: Math.round(c.x - 130), y: Math.round(c.y - 24) };
+  front(s);
+  stickers.push(s);
+  selected = s;
+  markDirty();
+  renderStickers().then(() => { const n = layer.querySelector(`.nb-sticker[data-id="${s.id}"]`); if (n) startEdit(s, n); });
+}
+function addShape(shape) {
+  const c = visibleCenter();
+  const w = shape === 'rect' ? 220 : 160, h = shape === 'rect' ? 140 : 160;
+  const s = { id: crypto.randomUUID(), type: 'shape', shape, stroke: '#ff4f8d', fill: 'none', sw: 4, w, h, rot: 0, x: Math.round(c.x - w / 2), y: Math.round(c.y - h / 2) };
+  front(s);
+  stickers.push(s);
+  selected = s;
+  markDirty();
+  renderStickers();
+}
+$('add-text').addEventListener('click', addText);
+$('add-circle').addEventListener('click', () => addShape('circle'));
+$('add-rect').addEventListener('click', () => addShape('rect'));
 
 function addSticker(src, x, y, opts = {}) {
   const s = { id: crypto.randomUUID(), src, w: opts.w || 140, rot: opts.rot ?? Math.round(Math.random() * 16 - 8), z: Math.max(0, ...stickers.map((o) => o.z || 0)) + 1 };
@@ -422,15 +563,25 @@ $('stk-tabs').addEventListener('click', (e) => {
   document.querySelectorAll('#stk-tabs button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
   renderGrid();
 });
-page.addEventListener('dragover', (e) => { if ([...e.dataTransfer.types].includes('text/x-sticker')) e.preventDefault(); });
+const hasFiles = (e) => [...(e.dataTransfer ? e.dataTransfer.types : [])].includes('Files');
+page.addEventListener('dragover', (e) => {
+  if ([...e.dataTransfer.types].includes('text/x-sticker')) e.preventDefault();
+  else if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; page.classList.add('photo-over'); }
+});
+page.addEventListener('dragleave', (e) => { if (!page.contains(e.relatedTarget)) page.classList.remove('photo-over'); });
 page.addEventListener('drop', (e) => {
+  page.classList.remove('photo-over');
+  const r = page.getBoundingClientRect();
+  const sc = scaleOf(page);
+  const at = { x: (e.clientX - r.left) / sc, y: (e.clientY - r.top) / sc };
+  if (hasFiles(e) && e.dataTransfer.files.length) { e.preventDefault(); addPhotoFiles(e.dataTransfer.files, at); return; }
   const src = e.dataTransfer.getData('text/x-sticker');
   if (!src) return;
   e.preventDefault();
-  const r = page.getBoundingClientRect();
-  const sc = scaleOf(page);
-  addSticker(src, (e.clientX - r.left) / sc, (e.clientY - r.top) / sc);
+  addSticker(src, at.x, at.y);
 });
+// A picture dropped just outside the page shouldn't make the browser open it instead.
+for (const ev of ['dragover', 'drop']) document.addEventListener(ev, (e) => { if (hasFiles(e) && !e.defaultPrevented && !e.target.closest('#drop')) e.preventDefault(); });
 
 async function uploadStickers(files) {
   const list = [...files].filter((f) => f.type.startsWith('image/'));
@@ -502,7 +653,7 @@ async function save() {
     }
     const row = {
       title, place: $('place').value.trim(), body_html: html, paper, drawing_path,
-      stickers: { h: pageH, stickers: stickers.map(({ id, src, x, y, w, rot, z }) => ({ id, src, x, y, w, rot, z })) }
+      stickers: { h: pageH, stickers: stickers.filter((s) => kindOf(s) !== 'text' || (s.text || '').trim()).map(itemForSave) }
     };
     if (isAuthor) row.access = access;
     let id = entry && entry.id;

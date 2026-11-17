@@ -36,6 +36,18 @@
         </form>
       </section>
 
+      <section class="card" aria-labelledby="fit">
+        <h2 id="fit" class="card-title">Silly Fitness</h2>
+        <p style="margin:0" class="muted small">Your weight is only used to estimate calories for cardio in your gym posts. Only the calorie number is shown on posts, never your weight.</p>
+        <form id="weight-form" novalidate>
+          <div class="row" style="gap:10px;align-items:flex-end">
+            <div class="field" style="flex:0 1 160px"><label for="body-weight">Your weight</label><input class="input" id="body-weight" type="number" inputmode="decimal" min="21" max="999" step="0.1" placeholder="e.g. 150"></div>
+            <div class="field" style="flex:0 0 110px"><label for="body-unit">Unit</label><select class="input" id="body-unit"><option value="lb">lb</option><option value="kg">kg</option></select></div>
+            <button class="btn btn-dark" type="submit">Save weight</button>
+          </div>
+          <p id="weight-msg" class="msg" role="status" hidden></p>
+        </form>
+      </section>
       <section class="card" aria-labelledby="bdays">
         <h2 id="bdays" class="card-title">Birthdays</h2>
         <p style="margin:0" class="muted small">They show up on the Memories calendar every year. Either of you can change either one.</p>

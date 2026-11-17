@@ -24,6 +24,23 @@ $('profile-form').addEventListener('submit', async (e) => {
   say($('profile-msg'), true, 'Saved. Your posts now show “' + name + '”.');
 });
 
+// ───────── Body weight (for cardio calories) ─────────
+(async () => {
+  const { data, error } = await sb.from('profiles').select('body_weight, body_weight_unit').eq('id', ctx.me.id).maybeSingle();
+  if (error) { say($('weight-msg'), false, 'Weight isn’t set up in the database yet. Run supabase/body-weight.sql in the Supabase SQL Editor.'); $('weight-form').querySelector('button').disabled = true; return; }
+  if (data && data.body_weight) $('body-weight').value = String(data.body_weight);
+  if (data && data.body_weight_unit) $('body-unit').value = data.body_weight_unit;
+})();
+$('weight-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const v = $('body-weight').value.trim();
+  const n = v ? Number(v) : null;
+  if (v && !(n > 20 && n < 1000)) return say($('weight-msg'), false, 'That weight doesn’t look right.');
+  const { error } = await sb.from('profiles').update({ body_weight: n, body_weight_unit: $('body-unit').value }).eq('id', ctx.me.id);
+  if (error) return say($('weight-msg'), false, friendlyError(error));
+  say($('weight-msg'), true, n ? 'Saved. New cardio posts will show estimated calories.' : 'Removed. Cardio posts won’t show calories.');
+});
+
 // ───────── Birthdays ─────────
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS_IN = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];

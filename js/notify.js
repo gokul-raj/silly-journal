@@ -145,7 +145,7 @@ export function mountNotifications(ctx, slot) {
       const e = entryById.get(c.entry_id);
       const whose = e && e.author === me ? 'your page' : 'the page';
       const verb = replyText(c) || 'commented on';
-      out.push({ key: 'ec:' + c.id, at: c.created_at, who: partner, text: `${verb} ${whose} ${e ? '“' + short(e.title || 'Untitled page', 40) + '”' : ''}`.trim(), quote: short(c.body), href: 'entry.html?id=' + c.entry_id + '#comments' });
+      out.push({ key: 'ec:' + c.id, at: c.created_at, who: partner, text: `${verb} ${whose} ${e ? '“' + short(e.title || 'Untitled page', 40) + '”' : ''}`.trim(), quote: short(c.body), href: 'home.html?entry=' + c.entry_id + '&comment=' + c.id });
     }
     for (const p of gp.data || []) {
       out.push({ key: 'gym:' + p.id, at: p.created_at, who: partner, text: p.kind === 'gym' ? 'posted a gym post' : 'asked a question in Silly Fitness', quote: short(p.body), href: 'fitness.html#post-' + p.id });
@@ -154,7 +154,7 @@ export function mountNotifications(ctx, slot) {
       const p = postById.get(c.post_id);
       const what = p ? (p.kind === 'gym' ? 'gym post' : 'question') : 'post';
       const whose = p && p.author === me ? 'your' : p && p.author === partner ? 'their' : 'a';
-      out.push({ key: 'gc:' + c.id, at: c.created_at, who: partner, text: `${replyText(c) || 'commented on'} ${whose} ${what}`, quote: short(c.body), href: 'fitness.html#post-' + c.post_id });
+      out.push({ key: 'gc:' + c.id, at: c.created_at, who: partner, text: `${replyText(c) || 'commented on'} ${whose} ${what}`, quote: short(c.body), href: 'fitness.html?comment=' + c.id + '#post-' + c.post_id });
     }
     for (const w of wa.data || []) {
       const loc = LOCATIONS[w.location];

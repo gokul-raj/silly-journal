@@ -20,6 +20,13 @@
   .stepper button { width: 44px; height: 44px; border: 1px solid #CBD2DA; background: #fff; font-size: 22px; cursor: pointer; }
   .grid4 { display: grid; grid-template-columns: minmax(0,3fr) repeat(3, minmax(0,1fr)) 44px; gap: 6px; align-items: center; }
   .grid4 .input, .grid3 .input { height: 40px; padding: 0 10px; font-size: 15px; }
+  .lift-row, .cardio-row { display: flex; flex-direction: column; gap: 6px; }
+  .per-set { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 10px; margin-right: 50px; background: #F7F7F5; border-radius: 6px; }
+  .per-set-label { flex: 1 0 100%; }
+  .set-box { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .set-box .input { width: 76px; height: 36px; padding: 0 8px; font-size: 15px; }
+  .grid4 .input[hidden] { display: block !important; visibility: hidden; }
+  .cardio-stats { display: flex; flex-wrap: wrap; gap: 0 2px; padding: 0 0 2px 4px; color: #0F5A42; }
   .grid3 { display: grid; grid-template-columns: minmax(0,3fr) repeat(2, minmax(0,1.3fr)) 44px; gap: 6px; align-items: center; }
   .w-head { font-weight: 600; font-size: 14px; color: var(--soft); margin-top: 6px; }
   .edit-banner { margin: 0; padding: 10px 14px; background: #FFF4D6; border-left: 3px solid #E0A82E; font-size: 14px; }
@@ -27,7 +34,8 @@
   .photo-pick img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .post { background: #fff; box-shadow: 0 1px 2px rgba(18,20,23,.08); display: flex; flex-direction: column; }
   .post .gym-photo { flex: 0 0 240px; width: 240px; height: 240px; object-fit: cover; background: #FFDEF9; }
-  .post.flash { animation: flash 2.4s ease-out; }
+  .post.flash, .comment.flash { animation: flash 2.4s ease-out; }
+  .comment.flash { border-radius: 6px; }
   @keyframes flash { 0%, 30% { box-shadow: 0 0 0 4px var(--accent); } 100% { box-shadow: 0 1px 2px rgba(18,20,23,.08); } }
   .workouts { list-style: none; margin: 0; padding: 0; }
   .workouts li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
